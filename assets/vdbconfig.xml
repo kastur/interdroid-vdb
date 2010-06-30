@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+	<repository name="notes" contentProvider="com.google.provider.versioned.NotePadProvider" />
+</config> 
