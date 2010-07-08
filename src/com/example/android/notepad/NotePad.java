@@ -27,7 +27,7 @@ public final class NotePad {
 
     // This class cannot be instantiated
     private NotePad() {}
-    
+
     /**
      * Notes table
      */

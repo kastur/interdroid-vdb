@@ -18,8 +18,8 @@ import android.content.Context;
 public class VdbRepositoryRegistry {
 
 	private static VdbRepositoryRegistry singletonInstance__;
-	
-	private VdbRepositoryRegistry() 
+
+	private VdbRepositoryRegistry()
 	{
 		// disable strict host checking for push/pull ssh connections
 		SshSessionFactory.setInstance( new SshConfigSessionFactory() {
@@ -30,7 +30,7 @@ public class VdbRepositoryRegistry {
 			}
 		});
 	}
-	
+
 	public static synchronized VdbRepositoryRegistry getInstance()
 	{
 		if (singletonInstance__ == null) {
@@ -38,11 +38,11 @@ public class VdbRepositoryRegistry {
 		}
 		return singletonInstance__;
 	}
-	
-	
+
+
 	Map<String,VdbRepositoryImpl> repositories_
 		= new HashMap<String, VdbRepositoryImpl>();
-	
+
 	public synchronized VdbRepository addRepository(Context context,
 			String repositoryName, VdbInitializer initializer)
 	throws IOException
@@ -59,7 +59,7 @@ public class VdbRepositoryRegistry {
 		repositories_.put(repositoryName, repo);
 		return repo;
 	}
-	
+
 	public synchronized VdbRepository getRepository(String repositoryName)
 	{
 		return repositories_.get(repositoryName);

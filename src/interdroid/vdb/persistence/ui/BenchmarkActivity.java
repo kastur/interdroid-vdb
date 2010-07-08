@@ -21,16 +21,15 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.Button;
-import android.widget.Toast;
 
 public class BenchmarkActivity extends Activity implements OnClickListener {
 	private static final String TAG = BenchmarkActivity.class.getSimpleName();
-	
+
 	private VdbRepository vdbRepo_;
 
 	protected void reportResult(String benchmark, long totalTime, int numRuns)
 	{
-		String msg = String.format("Benchmark %s ran in %d for %d runs.", 
+		String msg = String.format("Benchmark %s ran in %d for %d runs.",
 				benchmark, totalTime, numRuns);
 		Log.v(TAG, msg);
 	}
@@ -39,20 +38,20 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 	protected void onCreate(Bundle savedInstanceState)
 	{
         super.onCreate(savedInstanceState);
-        
+
         vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository("notes");
-        
+
         Button btn = new Button(this);
         btn.setText("Run benchmark");
         btn.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
         btn.setOnClickListener(this);
-        
+
         setContentView(btn);
 	}
-	
+
 	@Override
 	public void onClick(View v)
-	{	
+	{
 		new Thread() {
 			@Override
 			public void run()
@@ -60,7 +59,7 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 				try{
 					benchmarkContentProvider(com.google.provider.NotePad.Notes.CONTENT_URI);
 		 			benchmarkContentProvider(com.google.provider.versioned.Notes.CONTENT_URI);
-		 			
+
 					benchmarkCommit();
 		 			benchmarkCheckout();
 				} catch(Exception e) {
@@ -68,20 +67,20 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 				}
 
 			}
-		}.start();		
-	}	
+		}.start();
+	}
 
-	
+
 	protected long oneCheckoutRun(String branchName) throws IOException
 	{
 		long startTime = System.currentTimeMillis();
 		VdbCheckout vdbCheckout = vdbRepo_.getBranch(branchName);
 		long endTime = System.currentTimeMillis();
-		
+
 		vdbCheckout.delete();
 		return endTime - startTime;
 	}
-		
+
 	protected void benchmarkCheckout() throws IOException
 	{
 		final String branchName = "benchmark-checkout";
@@ -89,7 +88,7 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 			vdbRepo_.deleteBranch(branchName);
 		}
 		vdbRepo_.createBranch(branchName, "master");
-		
+
 		long totalTime = 0;
 		for (int i = 0; i < 100; ++i) {
 			totalTime += oneCheckoutRun(branchName);
@@ -97,7 +96,7 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 		reportResult("checkout", totalTime, 100);
 		vdbRepo_.deleteBranch(branchName);
 	}
-	
+
 	protected void benchmarkCommit() throws IOException, MergeInProgressException
 	{
 		final String branchName = "benchmark-commit";
@@ -108,20 +107,20 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 		VdbCheckout vdbCheckout = vdbRepo_.getBranch(branchName);
 		long startTime = System.currentTimeMillis();
 		for (int i = 0; i < 100; ++i) {
-			vdbCheckout.commit("commit-benchmark", "commit@benchmark", 
+			vdbCheckout.commit("commit-benchmark", "commit@benchmark",
 					"Lorem ipsum dolor sit amet\n\nfdsafd");
 		}
 		long totalTime = System.currentTimeMillis() - startTime;
 		reportResult("commit", totalTime, 100);
 		vdbRepo_.deleteBranch(branchName);
 	}
-	
+
 	protected void benchmarkContentProvider(Uri notesTableUri)
 	{
 		ContentResolver resolver = getContentResolver();
-		
+
 		resolver.delete(notesTableUri, null, null);
-		
+
 		long startTime = System.currentTimeMillis();
 		for (int i = 1; i <= 1000; ++i) {
 			ContentValues values = new ContentValues();
@@ -131,11 +130,11 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 			values.put(Notes.MODIFIED_DATE, System.currentTimeMillis());
 			values.put(Notes.NOTE, "note " + i);
 			resolver.insert(notesTableUri, values);
-		}		
+		}
 		long totalTime = System.currentTimeMillis() - startTime;
-		
+
 		reportResult("insert " + notesTableUri, totalTime, 1000);
-		
+
 		startTime = System.currentTimeMillis();
 		for (int i = 1; i <= 1000; ++i) {
 			ContentValues values = new ContentValues();
@@ -148,7 +147,7 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 		}
 		totalTime = System.currentTimeMillis() - startTime;
 		reportResult("update " + notesTableUri, totalTime, 1000);
-		
+
 		String[] projection = new String[]{Notes._ID, Notes.TITLE, Notes.NOTE,
 				Notes.MODIFIED_DATE, Notes.CREATED_DATE};
 		startTime = System.currentTimeMillis();
@@ -169,13 +168,13 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 		}
 		totalTime = System.currentTimeMillis() - startTime;
 		reportResult("query " + notesTableUri, totalTime, 100);
-		
+
 		startTime = System.currentTimeMillis();
 		for (int i = 1; i <= 1000; ++i) {
 			resolver.delete(Uri.withAppendedPath(notesTableUri, String.valueOf(i)),
 					null, null);
 		}
 		totalTime = System.currentTimeMillis() - startTime;
-		reportResult("delete " + notesTableUri, totalTime, 1000);		
+		reportResult("delete " + notesTableUri, totalTime, 1000);
 	}
 }

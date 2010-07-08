@@ -21,8 +21,8 @@ public class RevisionPicker extends Activity implements OnRevisionClickListener 
 	public static final String ALLOW_REMOTE_BRANCHES = "ALLOW_REMOTE_BRANCHES";
 	public static final String ALLOW_COMMITS = "ALLOW_COMMITS";
 	private static final String TAG = RevisionPicker.class.getName();
-	
-	
+
+
 	private VdbRepository vdbRepo_;
 	private RevisionsView revView_;
 
@@ -30,14 +30,14 @@ public class RevisionPicker extends Activity implements OnRevisionClickListener 
     protected void onCreate(Bundle savedInstanceState)
 	{
         super.onCreate(savedInstanceState);
-        
+
         Intent intent = getIntent();
         if (intent.getData() == null) {
             Log.e(TAG, "Need repository URI, exiting");
             finish();
             return;
         }
-        
+
         Vector<GroupType> vGroups = new Vector<GroupType>();
         if (intent.getBooleanExtra(ALLOW_LOCAL_BRANCHES, true)) {
         	vGroups.add(GroupType.LOCAL_BRANCHES);
@@ -62,7 +62,7 @@ public class RevisionPicker extends Activity implements OnRevisionClickListener 
         vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(pathSegments.get(0));
         revView_ = new RevisionsView(getApplicationContext(), vdbRepo_, vGroups.toArray(new GroupType[0]));
         setContentView(revView_);
-        
+
         revView_.setOnRevisionClickListener(this);
 	}
 

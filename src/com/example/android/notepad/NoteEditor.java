@@ -17,8 +17,6 @@
 package com.example.android.notepad;
 
 import interdroid.vdb.content.EntityUriMatcher;
-import interdroid.vdb.content.EntityUriMatcher.MatchType;
-import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 
 import com.example.android.notepad.NotePad.Notes;
 
@@ -42,7 +40,7 @@ import android.widget.EditText;
 /**
  * A generic activity for editing a note in a database.  This can be used
  * either to simply view a note {@link Intent#ACTION_VIEW}, view and edit a note
- * {@link Intent#ACTION_EDIT}, or create a new note {@link Intent#ACTION_INSERT}.  
+ * {@link Intent#ACTION_EDIT}, or create a new note {@link Intent#ACTION_INSERT}.
  */
 public class NoteEditor extends Activity {
     private static final String TAG = "Notes";
@@ -56,7 +54,7 @@ public class NoteEditor extends Activity {
     };
     /** The index of the note column */
     private static final int COLUMN_INDEX_NOTE = 1;
-    
+
     // This is our state data that is stored when freezing.
     private static final String ORIGINAL_CONTENT = "origContent";
 
@@ -87,13 +85,13 @@ public class NoteEditor extends Activity {
         // we need this constructor for LayoutInflater
         public LinedEditText(Context context, AttributeSet attrs) {
             super(context, attrs);
-            
+
             mRect = new Rect();
             mPaint = new Paint();
             mPaint.setStyle(Paint.Style.STROKE);
             mPaint.setColor(0x800000FF);
         }
-        
+
         @Override
         protected void onDraw(Canvas canvas) {
             int count = getLineCount();
@@ -128,7 +126,7 @@ public class NoteEditor extends Activity {
         		Log.e(TAG, "Cannot insert into a readOnly uri, exiting.");
         		finish();
         	}
-            
+
             // Requested to insert: set that state, and create a new entry
             // in the container.
             mState = STATE_INSERT;
@@ -156,7 +154,7 @@ public class NoteEditor extends Activity {
 
         // Set the layout for this activity.  You can find it in res/layout/note_editor.xml
         setContentView(R.layout.note_editor);
-        
+
         // The text view for our note, identified by its ID in the XML file.
         mText = (EditText) findViewById(R.id.note);
 
@@ -193,7 +191,7 @@ public class NoteEditor extends Activity {
             // etc).  This version of setText does that for us.
             String note = mCursor.getString(COLUMN_INDEX_NOTE);
             mText.setTextKeepState(note);
-            
+
             // If we hadn't previously retrieved the original text, do so
             // now.  This allows the user to revert their changes.
             if (mOriginalContent == null) {

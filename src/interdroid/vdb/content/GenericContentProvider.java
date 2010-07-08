@@ -14,8 +14,6 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import org.eclipse.jgit.lib.Constants;
-
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -25,22 +23,21 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Log;
 
 public class GenericContentProvider extends ContentProvider implements VdbInitializerFactory {
     private final Metadata metadata_;
     private final String name_;
 	private VdbRepository vdbRepo_;
-		
+
 	public class DatabaseInitializer implements VdbInitializer {
 	    @Override
 		public void onCreate(SQLiteDatabase db)
-	    {	    	
+	    {
 	    	// TODO(emilian): sql encoding
 	    	for (EntityInfo entity : metadata_.getEntities()) {
 	    		boolean firstField = true;
 	    		db.execSQL("DROP TABLE IF EXISTS " + entity.name());
-	    		
+
 	    		StringBuilder createSql = new StringBuilder("CREATE TABLE ");
 	    		createSql.append(entity.name());
 	    		createSql.append("(");
@@ -62,14 +59,14 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 	    	}
 	    }
 	}
-	
+
 	public VdbInitializer buildInitializer() {
 		return new DatabaseInitializer();
 	}
-	
+
 	@Override
     public boolean onCreate() {
-		vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(name_);         
+		vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(name_);
         return true;
     }
 
@@ -78,7 +75,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		name_ = name;
 		metadata_ = new Metadata(schemaClasses);
 	}
-	
+
 	@Override
 	public String getType(Uri uri)
 	{
@@ -87,7 +84,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		return result.entityIdentifier != null ? info.itemContentType()
 				: info.contentType();
 	}
-	
+
 	private VdbCheckout getCheckoutFor(Uri uri, UriMatch result) {
 		try {
 			switch(result.type) {
@@ -121,7 +118,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
         } else {
             values = new ContentValues();
         }
-        
+
         try {
 	        // TODO(emilian): make this cleaner
 	        Method m = entityInfo.clazz.getMethod("preInsertHook", ContentValues.class);
@@ -135,7 +132,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		} catch (InvocationTargetException e) {
 			throw new RuntimeException(e);
 		}
-        
+
         SQLiteDatabase db;
 		try {
 			db = vdbBranch.getReadWriteDatabase();
@@ -150,7 +147,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 	            getContext().getContentResolver().notifyChange(noteUri, null);
 	            return noteUri;
 	        }
-	        
+
 	        throw new SQLException("Failed to insert row into " + uri);
 		} finally {
 			vdbBranch.releaseDatabase();
@@ -166,7 +163,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
 		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
-		
+
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
 
         if (result.entityIdentifier != null) {
@@ -184,9 +181,9 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		} catch (IOException e) {
 			throw new RuntimeException("getReadOnlyDatabase failed", e);
 		}
-		
+
 		// TODO(emilian): default sort order
-		
+
 		try {
 			Cursor c = qb.query(db, projection, selection, selectionArgs, null, null, sortOrder);
 
@@ -205,7 +202,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
 		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
-		
+
         SQLiteDatabase db;
 		try {
 			db = vdbBranch.getReadWriteDatabase();
@@ -216,7 +213,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
         int count = 0;
 		try {
 	        if (result.entityIdentifier != null) {
-	            count = db.update(entityInfo.name(), values, 
+	            count = db.update(entityInfo.name(), values,
 	            		entityInfo.idField.fieldName + "=" + result.entityIdentifier
 	                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
 	        } else {
@@ -225,7 +222,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		} finally {
 			vdbBranch.releaseDatabase();
 		}
-        
+
 		/*
 		 TODO(emilian) implement auto commit support
         try {
@@ -234,12 +231,12 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
         	Log.v(GenericContentProvider.class.getSimpleName(), e.toString());
         }
         */
-        
+
         getContext().getContentResolver().notifyChange(uri, null);
         return count;
-        
+
 	}
-	
+
 	@Override
     public int delete(Uri uri, String where, String[] whereArgs)
 	{
@@ -247,7 +244,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
 		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
-		
+
         SQLiteDatabase db;
 		try {
 			db = vdbBranch.getReadWriteDatabase();
@@ -258,7 +255,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		try {
 	        int count;
 	        if (result.entityIdentifier != null) {
-	            count = db.delete(entityInfo.name(), 
+	            count = db.delete(entityInfo.name(),
 	            		entityInfo.idField.fieldName + "=" + result.entityIdentifier
 	                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
 	        } else {

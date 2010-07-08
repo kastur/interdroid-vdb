@@ -35,14 +35,14 @@ public class ManageRemotesActivity extends ListActivity {
 	private static final int DIALOG_SYNCHRONIZE = 1;
 	private static final int MSG_PROGRESS = 1, MSG_START = 2, MSG_DONE = 3;
 	private static final int CANCEL_TIMEOUT = 5000 /* ms */;
-	
+
 	@Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
 		final Intent intent = getIntent();
         final UriMatch match = EntityUriMatcher.getMatch(intent.getData());
-        
+
         if (match.type != MatchType.REPOSITORY) {
         	throw new RuntimeException("Invalid URI, can only add branches to a repository. "
         			+ intent.getData());
@@ -50,7 +50,7 @@ public class ManageRemotesActivity extends ListActivity {
         vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(match.repositoryName);
         buildUI();
 	}
-	
+
 	private List<String> buildRemotesList()
 	{
 		Set<String> remotes;
@@ -61,26 +61,26 @@ public class ManageRemotesActivity extends ListActivity {
 		}
 		return Collections.list(Collections.enumeration(remotes));
 	}
-	
+
 	private void refreshList()
 	{
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
 				android.R.layout.simple_list_item_1, buildRemotesList());
 		setListAdapter(adapter);
 	}
-	
+
 	private void buildUI()
 	{
 		refreshList();
 		getListView().setOnCreateContextMenuListener(this);
     	getListView().setChoiceMode(ListView.CHOICE_MODE_SINGLE);
-    	
+
         syncDialog_ = new ProgressDialog(this);
         syncDialog_.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         syncDialog_.setTitle("Synchronizing");
         syncDialog_.setMessage("");
         syncDialog_.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel",
-        		new AlertDialog.OnClickListener() {				
+        		new AlertDialog.OnClickListener() {
 			@Override
 			public void onClick(DialogInterface dialog, int which)
 			{
@@ -93,17 +93,17 @@ public class ManageRemotesActivity extends ListActivity {
 			@Override
 			public void onClick(DialogInterface dialog, int which)
 			{
-				syncDialog_.dismiss();					
+				syncDialog_.dismiss();
 			}
 		});
 	}
 
-    // Menu item ids	
+    // Menu item ids
 	public static final int MENU_ITEM_DELETE = Menu.FIRST;
     public static final int MENU_ITEM_ADD = Menu.FIRST + 1;
     public static final int MENU_ITEM_EDIT = Menu.FIRST + 2;
     public static final int MENU_ITEM_SYNC = Menu.FIRST + 3;
-	    
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
@@ -111,7 +111,7 @@ public class ManageRemotesActivity extends ListActivity {
         menu.add(0, MENU_ITEM_ADD, 0, "Add")
 		        .setShortcut('3', 'a')
 		        .setIcon(android.R.drawable.ic_menu_add);
-        
+
         menu.add(1, MENU_ITEM_EDIT, 0, "Edit")
 		        .setShortcut('0', 'e')
 		        .setIcon(android.R.drawable.ic_menu_edit);
@@ -119,14 +119,14 @@ public class ManageRemotesActivity extends ListActivity {
         menu.add(2, MENU_ITEM_SYNC, 0, "Sync")
 		        .setShortcut('0', 's')
 		        .setIcon(android.R.drawable.ic_menu_share);
-    
+
         menu.add(3, MENU_ITEM_DELETE, 0, "Delete")
 		        .setShortcut('0', 'd')
 		        .setIcon(android.R.drawable.ic_menu_delete);
 
         return true;
     }
-    
+
     @Override
 	protected void onActivityResult (int requestCode, int resultCode, Intent data)
 	{
@@ -134,10 +134,10 @@ public class ManageRemotesActivity extends ListActivity {
 			refreshList();
 		}
 	}
-    
+
     private ProgressDialog syncDialog_;
     private SyncThread syncThread_;
-    
+
     final Handler syncHandler_ = new Handler() {
         public void handleMessage(Message msg) {
         	switch(msg.what) {
@@ -158,7 +158,7 @@ public class ManageRemotesActivity extends ListActivity {
         	}
         }
     };
-    
+
     private class SyncThread extends Thread implements ProgressMonitor {
     	private boolean wasCanceled_, isDone_, startMessageSent_;
     	private Handler uiHandler_;
@@ -167,13 +167,13 @@ public class ManageRemotesActivity extends ListActivity {
     	private int currentTask_ = 0, totalTasks_ = 1;
     	private String remoteName_;
     	private long killTimeMillis;
-    	
+
     	public SyncThread(Handler uiHandler, String remoteName)
 		{
 			uiHandler_ = uiHandler;
 			remoteName_ = remoteName;
 		}
-    	
+
 		public void cancel()
 		{
 			wasCanceled_ = true;
@@ -181,7 +181,7 @@ public class ManageRemotesActivity extends ListActivity {
 			updateUi();
 			uiHandler_ = null;
 		}
-		
+
 		public boolean isDoneOrCanceled()
 		{
 			if (isDone_) {
@@ -198,7 +198,7 @@ public class ManageRemotesActivity extends ListActivity {
 			}
 			return wasCanceled_;
 		}
-    	
+
     	@Override
     	public void run()
     	{
@@ -216,7 +216,7 @@ public class ManageRemotesActivity extends ListActivity {
     		isDone_ = true;
     		updateUi();
     	}
-    	
+
     	private void updateUi()
     	{
     		if (uiHandler_ == null) {
@@ -253,7 +253,7 @@ public class ManageRemotesActivity extends ListActivity {
 			++currentTask_;
 			updateUi();
 		}
-		
+
 		@Override
 		public boolean isCancelled()
 		{
@@ -276,7 +276,7 @@ public class ManageRemotesActivity extends ListActivity {
 			updateUi();
 		}
     }
-    
+
     @Override
     protected Dialog onCreateDialog(int id) {
         switch(id) {
@@ -286,7 +286,7 @@ public class ManageRemotesActivity extends ListActivity {
             return null;
         }
     }
-    
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
     	if (item.getItemId() == MENU_ITEM_ADD) {

@@ -22,15 +22,15 @@ public class RemoteInfo {
 		MERGE_POINT,
 		HUB;
 	}
-	
+
 	private RemoteType type_;
 	private String name_;
 	private String description_;
 	private URIish remoteUri_;
-	
+
 	/* only valid when type_ == RemoteType.HUB */
 	private String ourNameOnRemote_;
-	
+
 	public RemoteInfo() {
 		type_ = RemoteType.MERGE_POINT;
 	}
@@ -38,7 +38,7 @@ public class RemoteInfo {
 		name_ = name;
 		type_ = RemoteType.MERGE_POINT;
 	}
-		
+
 	public void load(Config rc) throws URISyntaxException
 	{
 		try {
@@ -48,12 +48,12 @@ public class RemoteInfo {
 		} catch(NullPointerException e) {
 			setType(RemoteType.HUB);
 		}
-		
+
 		RemoteConfig remoteCfg = new RemoteConfig(rc, name_);
 		List<URIish> allURIs = remoteCfg.getURIs();
-		setRemoteUri((allURIs.size() > 0) ? allURIs.get(0) : null);	
+		setRemoteUri((allURIs.size() > 0) ? allURIs.get(0) : null);
 		setDescription(rc.getString(SECTION, name_, KEY_DESCRIPTION));
-		
+
 		switch(type_) {
 		case HUB:
 			setOurNameOnRemote(rc.getString(SECTION, name_, KEY_OUR_NAME_ON_REMOTE));
@@ -61,12 +61,12 @@ public class RemoteInfo {
 		case MERGE_POINT:
 		}
 	}
-	
+
 	public void save(Config rc) throws URISyntaxException
 	{
 		rc.setString(SECTION, name_, KEY_TYPE, type_.name());
 		rc.setString(SECTION, name_, KEY_DESCRIPTION, description_);
-		
+
 		RemoteConfig remoteCfg = new RemoteConfig(rc, name_);
 		switch(type_) {
 		case HUB:
@@ -75,8 +75,8 @@ public class RemoteInfo {
 			remoteCfg.setFetchRefSpecs(new ArrayList<RefSpec>());
 			remoteCfg.addFetchRefSpec(new RefSpec()
 					.setSourceDestination("refs/remotes/*", "refs/remotes/*"));
-			
-			// And we push our local branches to the refs/remotes/ourname 
+
+			// And we push our local branches to the refs/remotes/ourname
 			remoteCfg.setPushRefSpecs(new ArrayList<RefSpec>());
 			if (ourNameOnRemote_ != null) {
 				String pushPath = "refs/remotes/" + ourNameOnRemote_ + "/*";
@@ -85,7 +85,7 @@ public class RemoteInfo {
 			}
 			break;
 		case MERGE_POINT:
-			// We fetch merge points into refs/remotes/remote-name 
+			// We fetch merge points into refs/remotes/remote-name
 			remoteCfg.setFetchRefSpecs(new ArrayList<RefSpec>());
 			String fetchPath = "refs/remotes/" + name_ +  "/*";
 			remoteCfg.addFetchRefSpec(new RefSpec()
@@ -95,8 +95,8 @@ public class RemoteInfo {
 			remoteCfg.setPushRefSpecs(new ArrayList<RefSpec>());
 			remoteCfg.addPushRefSpec(new RefSpec()
 					.setSourceDestination("refs/heads/*", "refs/heads/*"));
-		}		
-		
+		}
+
 		for (URIish uri : remoteCfg.getURIs()) {
 			remoteCfg.removeURI(uri);
 		}
@@ -104,7 +104,7 @@ public class RemoteInfo {
 			remoteCfg.addURI(remoteUri_);
 		}
 		remoteCfg.update(rc);
-		
+
 		switch(type_) {
 		case HUB:
 			rc.setString(SECTION, name_, KEY_OUR_NAME_ON_REMOTE, ourNameOnRemote_);
@@ -113,7 +113,7 @@ public class RemoteInfo {
 			rc.unset(SECTION, name_, KEY_OUR_NAME_ON_REMOTE);
 		}
 	}
-	
+
 	@Override
 	public RemoteInfo clone()
 	{

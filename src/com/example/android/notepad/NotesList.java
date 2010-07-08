@@ -17,8 +17,6 @@
 package com.example.android.notepad;
 
 import interdroid.vdb.content.EntityUriMatcher;
-import interdroid.vdb.content.VdbMainContentProvider;
-import interdroid.vdb.content.EntityUriMatcher.MatchType;
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.persistence.ui.CommitActivity;
 
@@ -65,10 +63,10 @@ public class NotesList extends ListActivity {
 
     /** The index of the title column */
     private static final int COLUMN_INDEX_TITLE = 1;
-    
+
     Uri mBranchUri;
     boolean mReadOnly = true;
-    
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -81,7 +79,7 @@ public class NotesList extends ListActivity {
         if (intent.getData() == null) {
             intent.setData(Notes.CONTENT_URI);
         }
-        
+
     	UriMatch match = EntityUriMatcher.getMatch(intent.getData());
     	if (!match.isCheckout()) {
     		Toast.makeText(this, "Invalid URI.", Toast.LENGTH_LONG).show();
@@ -94,14 +92,14 @@ public class NotesList extends ListActivity {
     	}
     	// For write checkouts we hold the branch Uri for launching the commit activity
     	mReadOnly = match.isReadOnlyCheckout();
-    	mBranchUri = match.getCheckoutUri();    	
+    	mBranchUri = match.getCheckoutUri();
     	if (mReadOnly) {
     		Toast.makeText(this, "Read only", Toast.LENGTH_LONG).show();
     	}
 
         // Inform the list we provide context menus for items
         getListView().setOnCreateContextMenuListener(this);
-        
+
         // Perform a managed query. The Activity will handle closing and requerying the cursor
         // when needed.
         Cursor cursor = managedQuery(getIntent().getData(), PROJECTION, null, null,
@@ -123,7 +121,7 @@ public class NotesList extends ListActivity {
 	        menu.add(0, MENU_ITEM_INSERT, 0, R.string.menu_insert)
 	                .setShortcut('3', 'a')
 	                .setIcon(android.R.drawable.ic_menu_add);
-	        
+
 	        menu.add(1, MENU_ITEM_COMMIT, 0, "Commit")
 		        .setShortcut('9', 'c')
 		        .setIcon(android.R.drawable.ic_menu_save);
@@ -214,7 +212,7 @@ public class NotesList extends ListActivity {
 	        menu.add(0, MENU_ITEM_DELETE, 0, R.string.menu_delete);
         }
     }
-        
+
     @Override
     public boolean onContextItemSelected(MenuItem item) {
         AdapterView.AdapterContextMenuInfo info;
@@ -239,7 +237,7 @@ public class NotesList extends ListActivity {
     @Override
     protected void onListItemClick(ListView l, View v, int position, long id) {
         Uri uri = ContentUris.withAppendedId(getIntent().getData(), id);
-        
+
         String action = getIntent().getAction();
         if (Intent.ACTION_PICK.equals(action) || Intent.ACTION_GET_CONTENT.equals(action)) {
             // The caller is waiting for us to return a note selected by

@@ -17,22 +17,22 @@ public class ThreeWayDiffCursor {
 	private Cursor rowCursor_;
 	/**
 	 * If the rowCursor is not null then these will hold the diff result
-	 * for the current row. 
+	 * for the current row.
 	 */
 	private DiffResult rowStateOurs_, rowStateTheirs_;
-	
+
 	/** Cache the column indexes for the diff result column of each diff */
 	private int indexOursDiffState_, indexTheirsDiffState_;
-	
+
 	public ThreeWayDiffCursor(MergeHelper helper, SQLiteDatabase db, String table)
 	{
 		tableInfo_ = helper.getTableMetadata(db, table);
 		curTheirs_ = helper.diff2(db, table, Database.BASE, Database.THEIRS);
-		curOurs_ = helper.diff2(db, table, Database.BASE, Database.OURS);		
+		curOurs_ = helper.diff2(db, table, Database.BASE, Database.OURS);
 		indexOursDiffState_ = curOurs_.getColumnIndexOrThrow(MergeHelper.COL_DIFF_RESULT);
 		indexTheirsDiffState_ = curTheirs_.getColumnIndexOrThrow(MergeHelper.COL_DIFF_RESULT);
 	}
-	
+
 	private void pickSmallestRow()
 	{
 		boolean haveTheirs = !curTheirs_.isAfterLast() && !curTheirs_.isBeforeFirst();
@@ -42,7 +42,7 @@ public class ThreeWayDiffCursor {
 			return;
 		}
 		if (haveTheirs && haveOurs) {
-			/** 
+			/**
 			 * Since we are merging, we have to iterate on the pk columns in the
 			 * same order as the ORDER BY statement in {@link MergeHelper#diff2}.
 			 **/
@@ -50,7 +50,7 @@ public class ThreeWayDiffCursor {
 				// TODO(emilian) rewrite me with strings too
 				long ourLong = curOurs_.getLong(i);
 				long theirLong = curTheirs_.getLong(i);
-				
+
 				if (ourLong < theirLong) {
 					haveTheirs = false;
 					break;
@@ -72,13 +72,13 @@ public class ThreeWayDiffCursor {
 		curTheirs_.moveToFirst();
 		curOurs_.moveToFirst();
 		pickSmallestRow();
-		
+
 		return rowCursor_ != null ? true : false;
 	}
-	
+
 	public boolean moveToNext()
 	{
-		if (rowCursor_ == null) { // already past end 
+		if (rowCursor_ == null) { // already past end
 			return false;
 		}
 		if (!DiffResult.SAME.equals(rowStateOurs_)) {
@@ -97,24 +97,24 @@ public class ThreeWayDiffCursor {
 					"Do not query the cursor when there are no more rows.");
 		}
 	}
-		
+
 	public DiffResult getStateTheirs()
 	{
 		checkValidRow();
 		return rowStateTheirs_;
 	}
-	
+
 	public DiffResult getStateOurs()
 	{
 		checkValidRow();
 		return rowStateOurs_;
 	}
-	
+
 	public Cursor getTheirsCursor()
 	{
 		return curTheirs_;
 	}
-	
+
 	public Cursor getOursCursor()
 	{
 		return curOurs_;

@@ -19,22 +19,22 @@ public class Notes {
 
 	public static final Uri CONTENT_URI =
 		Uri.withAppendedPath(EntityUriBuilder.branchUri("notes", "master"), "notes");
-	
+
 	@DbField(isID=true, dbType=DatabaseFieldTypes.INTEGER)
 	public static final String _ID = "_id";
 
 	@DbField(dbType=DatabaseFieldTypes.TEXT)
 	public static final String TITLE = "title";
-	
+
 	@DbField(dbType=DatabaseFieldTypes.TEXT)
 	public static final String NOTE = "note";
-	
+
 	@DbField(dbType=DatabaseFieldTypes.INTEGER)
 	public static final String CREATED_DATE = "created";
-	
+
 	@DbField(dbType=DatabaseFieldTypes.INTEGER)
 	public static final String MODIFIED_DATE = "modified";
-	
+
 	public static void preInsertHook(ContentValues values) {
         Long now = Long.valueOf(System.currentTimeMillis());
 

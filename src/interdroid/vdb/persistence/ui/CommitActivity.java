@@ -1,7 +1,6 @@
 package interdroid.vdb.persistence.ui;
 
 import interdroid.vdb.content.EntityUriMatcher;
-import interdroid.vdb.content.VdbMainContentProvider;
 import interdroid.vdb.content.EntityUriMatcher.MatchType;
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.persistence.api.MergeInProgressException;
@@ -25,64 +24,64 @@ import android.widget.Toast;
 
 public class CommitActivity extends Activity implements OnClickListener {
 	public static final String ACTION_COMMIT = "interdroid.vdb.action.COMMIT";
-	
+
 	private EditText editAuthorName_, editAuthorEmail_, editMessage_;
 	private VdbCheckout vdbBranch_;
 	private Button btnCommit_, btnCancel_;
 	private SharedPreferences prefs_;
-	
+
 	private final String PREF_AUTHOR_NAME = "authorName";
 	private final String PREF_AUTHOR_EMAIL = "authorEmail";
-	
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState)
 	{
-        super.onCreate(savedInstanceState);        
-        
+        super.onCreate(savedInstanceState);
+
         final Intent intent = getIntent();
         UriMatch match = EntityUriMatcher.getMatch(intent.getData());
-        
+
         if (match.type != MatchType.LOCAL_BRANCH) {
         	throw new RuntimeException("Invalid URI, can only commit on a local branch. "
         			+ intent.getData());
         }
-        
+
         try {
 			vdbBranch_ = VdbRepositoryRegistry.getInstance().getRepository(match.repositoryName)
 					.getBranch(match.reference);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
-		
+
 		prefs_ = getPreferences(MODE_PRIVATE);
 		buildUI();
 	}
-	
+
 	protected void buildUI()
 	{
         setContentView(R.layout.commit_dialog);
-        
+
         editAuthorName_ = (EditText) findViewById(R.id.author_name);
         editAuthorEmail_ = (EditText) findViewById(R.id.author_email);
         editMessage_ = (EditText) findViewById(R.id.message);
-        
+
         if (!prefs_.contains(PREF_AUTHOR_NAME)) {
         	editAuthorName_.selectAll();
         } else {
         	editAuthorName_.setText(prefs_.getString(PREF_AUTHOR_NAME, ""));
         }
-        
+
         if (!prefs_.contains(PREF_AUTHOR_EMAIL)) {
         	editAuthorEmail_.selectAll();
         } else {
         	editAuthorEmail_.setText(prefs_.getString(PREF_AUTHOR_EMAIL, ""));
         }
         editMessage_.selectAll();
-        
+
         btnCommit_ = (Button) findViewById(R.id.commit);
         btnCancel_ = (Button) findViewById(R.id.cancel);
 
-        btnCommit_.setOnClickListener(this);        
+        btnCommit_.setOnClickListener(this);
         btnCancel_.setOnClickListener(this);
 	}
 
@@ -95,7 +94,7 @@ public class CommitActivity extends Activity implements OnClickListener {
 				String authorName = editAuthorName_.getText().toString();
 				String authorEmail = editAuthorEmail_.getText().toString();
 				String message = editMessage_.getText().toString();
-				
+
 				prefs_.edit().putString(PREF_AUTHOR_NAME, authorName)
 					.putString(PREF_AUTHOR_EMAIL, authorEmail).commit();
 				vdbBranch_.commit(authorName, authorEmail, message);

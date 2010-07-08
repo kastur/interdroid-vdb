@@ -16,7 +16,6 @@ import org.eclipse.jgit.transport.URIish;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.Editable.Factory;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.AdapterView;
@@ -33,7 +32,7 @@ import com.example.android.notepad.R;
 public class EditRemoteActivity extends Activity implements OnClickListener {
 	public static final String ACTION_ADD_REMOTE = "interdroid.vdb.action.ADD_REMOTE";
 	public static final String ACTION_EDIT_REMOTE = "interdroid.vdb.action.EDIT_REMOTE";
-	
+
 	private VdbRepository vdbRepo_;
 	private boolean addingNewRemote;
 	private RemoteInfo remoteInfo_;
@@ -42,14 +41,14 @@ public class EditRemoteActivity extends Activity implements OnClickListener {
 	protected void onCreate(Bundle savedInstanceState)
 	{
 		super.onCreate(savedInstanceState);
-		
+
 		final Intent intent = getIntent();
         UriMatch match = EntityUriMatcher.getMatch(intent.getData());
         if (match.repositoryName != null) {
 	        vdbRepo_ = VdbRepositoryRegistry.getInstance()
 	        	.getRepository(match.repositoryName);
         }
-        
+
         if (getIntent().getAction().equals(ACTION_ADD_REMOTE)) {
 	        if (match.type != MatchType.REPOSITORY) {
 	        	throw new RuntimeException("Invalid URI, need a repository. "
@@ -78,26 +77,26 @@ public class EditRemoteActivity extends Activity implements OnClickListener {
 		buildUI();
 		updateData(false);
 	}
-	
+
 	private static final String[] protocols__
 			= new String[] { "ssh", "http", "https", "git", "git+bluetooth" };
-	
+
 	private static final String[] type_labels__
 			= new String[] { "merge point", "hub mode" };
 	private static final RemoteType[] types__
 			= new RemoteType[] {RemoteType.MERGE_POINT, RemoteType.HUB};
-	
+
 	private Spinner spnProtocol_, spnType_;
 	private EditText editName_, editDescription_, editHostname_, editUsername_,
 			editPassword_, editOurNameOnRemote_, editPath_;
 	private TextView tvOurNameOnRemote_;
 	private Button btnSave_, btnCancel_;
-	
+
 	private void buildUI()
 	{
 		setTitle("Remote configuration");
 		setContentView(R.layout.edit_remote_activity_dialog);
-		
+
 		editName_ = (EditText) findViewById(R.id.name);
 		editDescription_ = (EditText) findViewById(R.id.description);
 		editHostname_ = (EditText) findViewById(R.id.hostname);
@@ -108,7 +107,7 @@ public class EditRemoteActivity extends Activity implements OnClickListener {
 		tvOurNameOnRemote_ = (TextView) findViewById(R.id.tv_our_name_on_remote);
 		btnSave_ = (Button) findViewById(R.id.save);
 		btnCancel_ = (Button) findViewById(R.id.cancel);
-		
+
 		editName_.setEnabled(addingNewRemote);
 		// TODO(emilian): enabled is not readonly
 		{
@@ -123,7 +122,7 @@ public class EditRemoteActivity extends Activity implements OnClickListener {
 					tvOurNameOnRemote_.setVisibility(shown ? View.VISIBLE : View.GONE);
 					editOurNameOnRemote_.setVisibility(shown ? View.VISIBLE : View.GONE);
 				}
-				
+
 				@Override
 				public void onItemSelected(AdapterView<?> adapter, View view, int pos,
 						long id)
@@ -134,7 +133,7 @@ public class EditRemoteActivity extends Activity implements OnClickListener {
 				@Override
 				public void onNothingSelected(AdapterView<?> adapter)
 				{
-					showHubControls(false);	
+					showHubControls(false);
 				}
 			});
 		}
@@ -147,43 +146,43 @@ public class EditRemoteActivity extends Activity implements OnClickListener {
 			adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 			spnProtocol_ .setAdapter(adapter);
 		}
-		
+
 		btnSave_.setOnClickListener(this);
 		btnCancel_.setOnClickListener(this);
 	}
-	
+
 	private String nullAsEmpty(String val)
 	{
 		return val == null ? "" : val;
 	}
-	
+
 	private String emptyAsNull(String val)
 	{
 		return val.length() == 0 ? null : val;
 	}
-	
+
 	private void updateData(boolean controlsToData)
 	{
 		if (!controlsToData) {
 			editName_.setText(remoteInfo_.getName());
 			editDescription_.setText(remoteInfo_.getDescription());
-			
+
 			for (int i = 0; i < types__.length; i++) {
 				if (types__[i] == remoteInfo_.getType()) {
 					spnType_.setSelection(i);
 					break;
 				}
 			}
-			
+
 			editOurNameOnRemote_.setText(nullAsEmpty(remoteInfo_.getOurNameOnRemote()));
 			URIish uri = remoteInfo_.getRemoteUri();
 			uri = (uri == null) ? new URIish() : uri;
-			
+
 			editHostname_.setText(nullAsEmpty(uri.getHost()));
 			editUsername_.setText(nullAsEmpty(uri.getUser()));
 			editPassword_.setText(nullAsEmpty(uri.getPass()));
 			editPath_.setText(nullAsEmpty(uri.getPath()));
-			
+
 			for (int i = 0; i < protocols__.length; i++) {
 				if (protocols__[i].equals(uri.getScheme())) {
 					spnProtocol_.setSelection(i);
@@ -192,14 +191,14 @@ public class EditRemoteActivity extends Activity implements OnClickListener {
 			}
 		} else {
 			remoteInfo_.setName(editName_.getText().toString());
-			remoteInfo_.setDescription(editDescription_.getText().toString());			
+			remoteInfo_.setDescription(editDescription_.getText().toString());
 
 			RemoteType type = types__[spnType_.getSelectedItemPosition()];
 			remoteInfo_.setType(type);
 			if (type == RemoteType.HUB) {
 				remoteInfo_.setOurNameOnRemote(editOurNameOnRemote_.getText().toString());
 			}
-			
+
 			URIish uri = new URIish();
 			uri = uri.setScheme(protocols__[spnProtocol_.getSelectedItemPosition()]);
 			uri = uri.setHost(editHostname_.getText().toString());
@@ -210,7 +209,7 @@ public class EditRemoteActivity extends Activity implements OnClickListener {
 			remoteInfo_.setRemoteUri(uri);
 		}
 	}
-	
+
 	private boolean validate()
 	{
 		String name = remoteInfo_.getName();
@@ -271,6 +270,6 @@ public class EditRemoteActivity extends Activity implements OnClickListener {
 		} else if (v == btnCancel_) {
 			setResult(RESULT_CANCELED);
 			finish();
-		}		
+		}
 	}
 }

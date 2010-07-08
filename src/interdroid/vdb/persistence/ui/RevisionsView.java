@@ -13,7 +13,6 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import com.example.android.notepad.R;
 
 import android.content.Context;
-import android.database.DataSetObserver;
 import android.net.Uri;
 import android.text.format.DateFormat;
 import android.view.Gravity;
@@ -34,18 +33,17 @@ implements OnItemLongClickListener, OnChildClickListener {
 		REMOTE_BRANCHES,
 		COMMITS
 	}
-	
+
 	private final VdbRepository vdbRepo_;
 	private Vector<RevCommit> commits_;
 	private Vector<String> branches_, remoteBranches_;
 	private GroupType[] groups_;
-	private EntityUriBuilder uriBuilder_;
 	private MyExpandableListAdapter adapter_;
-	
+
 	class MyExpandableListAdapter extends BaseExpandableListAdapter {
-		
+
 		public MyExpandableListAdapter() {}
-		
+
 		@Override
 		public Object getChild(int groupPosition, int childPosition) {
 			// don't need any data
@@ -55,32 +53,32 @@ implements OnItemLongClickListener, OnChildClickListener {
 		View buildCommitItemView(RevCommit c, View convertView, ViewGroup parent) {
 			final java.text.DateFormat dateFormat = DateFormat.getDateFormat(getContext());
 			final java.text.DateFormat timeFormat = DateFormat.getTimeFormat(getContext());
-			
+
 			Date creationDate = new Date(1000 * c.getCommitTime());
-			
+
 			View view = LayoutInflater.from(getContext()).inflate(R.layout.commitlist_item, parent, false);
 			((TextView)view.findViewById(R.id.title)).setText(c.getShortMessage());
 			((TextView)view.findViewById(R.id.commit_sha1)).setText(c.getName());
 			((TextView)view.findViewById(R.id.created_at)).setText(
-					"Created at  " + dateFormat.format(creationDate) 
+					"Created at  " + dateFormat.format(creationDate)
 					+ " " + timeFormat.format(creationDate));
 			((TextView)view.findViewById(R.id.created_by)).setText(
 					"by " + c.getAuthorIdent().getEmailAddress());
 			return view;
 		}
-		
+
 		View buildBranchItemView(int childPosition, View convertView, ViewGroup parent) {
 			View view = LayoutInflater.from(getContext()).inflate(R.layout.branchlist_item, parent, false);
 			((TextView)view.findViewById(R.id.name)).setText(branches_.get(childPosition));
 			return view;
 		}
-		
+
 		View buildRemoteItemView(int childPosition, View convertView, ViewGroup parent) {
 			View view = LayoutInflater.from(getContext()).inflate(R.layout.remotelist_item, parent, false);
 			((TextView)view.findViewById(R.id.name)).setText(remoteBranches_.get(childPosition));
 			return view;
 		}
-		
+
 		@Override
 		public View getChildView(int groupPosition, int childPosition,
 				boolean isLastChild, View convertView, ViewGroup parent) {
@@ -113,7 +111,7 @@ implements OnItemLongClickListener, OnChildClickListener {
 			// don't need any data
 			return null;
 		}
-		
+
 		@Override
 		public View getGroupView(int groupPosition, boolean isExpanded,
 				View convertView, ViewGroup parent) {
@@ -122,7 +120,7 @@ implements OnItemLongClickListener, OnChildClickListener {
 			view.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
 			view.setPadding(36, 0, 0, 0);
 			view.setTextSize(14);
-			
+
 			switch(groups_[groupPosition]) {
 			case LOCAL_BRANCHES:
 				view.setText("Local branches");
@@ -146,7 +144,7 @@ implements OnItemLongClickListener, OnChildClickListener {
 		public long getGroupId(int groupPosition) {
 			return getPackedPositionForGroup(groupPosition);
 		}
-		
+
 		@Override
 		public long getChildId(int groupPosition, int childPosition) {
 			return getPackedPositionForChild(groupPosition, childPosition);
@@ -162,14 +160,14 @@ implements OnItemLongClickListener, OnChildClickListener {
 			return true;
 		}
 	}
-	
+
 	public void refresh()
 	{
 		refreshCommits();
 		adapter_.notifyDataSetChanged();
 	}
-	
-	private void refreshCommits() {	
+
+	private void refreshCommits() {
 		commits_ = new Vector<RevCommit>();
 		branches_ = new Vector<String>();
 		remoteBranches_ = new Vector<String>();
@@ -186,7 +184,7 @@ implements OnItemLongClickListener, OnChildClickListener {
 
 	public RevisionsView(Context context, VdbRepository vdbRepo, GroupType... groupsToShow) {
 		super(context);
-		
+
 		vdbRepo_ = vdbRepo;
 		if (groupsToShow.length == 0) {
 			groupsToShow = new GroupType[] {
@@ -195,36 +193,36 @@ implements OnItemLongClickListener, OnChildClickListener {
 		groups_ = groupsToShow;
 
 		setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
-		
+
 		setItemsCanFocus(false);
 		setChoiceMode(CHOICE_MODE_SINGLE);
 		refreshCommits();
-		adapter_ = new MyExpandableListAdapter(); 
+		adapter_ = new MyExpandableListAdapter();
 		setAdapter(adapter_);
-		
+
 		// This will be the favored list, so expand it by default
 		expandGroup(0);
-		
+
         setOnChildClickListener(this);
 		setOnItemLongClickListener(this);
 	}
-	
+
 	public static interface OnRevisionClickListener {
 		public enum SelectAction {
 			CLICK, LONG_CLICK;
-		}		
+		}
 		public void onRevisionClick(RevisionsView view, Uri revUri, SelectAction type);
 	}
-	
+
 	private OnRevisionClickListener theListener_;
-	
+
 	public void setOnRevisionClickListener(OnRevisionClickListener listener) {
 		if (theListener_ != null) {
 			throw new IllegalStateException("Only one listener is supported.");
 		}
-		theListener_ = listener;		
+		theListener_ = listener;
 	}
-	
+
 	public Uri getSelectedUri()
 	{
 		long id = getSelectedPosition();
@@ -235,17 +233,17 @@ implements OnItemLongClickListener, OnChildClickListener {
 		int childPosition = getPackedPositionChild(id);
 		return getUriAt(groupPosition, childPosition);
 	}
-	
+
 	private Uri getUriAt(int groupPosition, int childPosition)
 	{
 		switch(groups_[groupPosition]) {
 		case LOCAL_BRANCHES:
-			return uriBuilder_.branchUri(vdbRepo_.getName(), branches_.get(childPosition));
+			return EntityUriBuilder.branchUri(vdbRepo_.getName(), branches_.get(childPosition));
 		case REMOTE_BRANCHES:
-			return uriBuilder_.remoteBranchUri(vdbRepo_.getName(),
+			return EntityUriBuilder.remoteBranchUri(vdbRepo_.getName(),
 					remoteBranches_.get(childPosition));
 		case COMMITS:
-			return uriBuilder_.commitUri(vdbRepo_.getName(),
+			return EntityUriBuilder.commitUri(vdbRepo_.getName(),
 					commits_.get(childPosition).getName());
 		}
 		return null;
@@ -258,7 +256,7 @@ implements OnItemLongClickListener, OnChildClickListener {
 					getUriAt(groupPosition, childPosition), type);
 		}
 	}
-	
+
 	public boolean onChildClick(ExpandableListView parent, View v,
 			int groupPosition, int childPosition, long id)
 	{

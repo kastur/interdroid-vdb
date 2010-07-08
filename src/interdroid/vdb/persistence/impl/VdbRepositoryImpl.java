@@ -4,24 +4,19 @@ import interdroid.vdb.persistence.api.RemoteInfo;
 import interdroid.vdb.persistence.api.VdbCheckout;
 import interdroid.vdb.persistence.api.VdbInitializer;
 import interdroid.vdb.persistence.api.VdbRepository;
-import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.sql.Connection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.jgit.lib.AnyObjectId;
-import org.eclipse.jgit.lib.Commit;
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.GitIndex;
 import org.eclipse.jgit.lib.ObjectId;
-import org.eclipse.jgit.lib.ObjectWriter;
-import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.ProgressMonitor;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefDatabase;
@@ -35,13 +30,8 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.revwalk.filter.RevFilter;
 import org.eclipse.jgit.transport.RemoteConfig;
-import org.eclipse.jgit.transport.SshConfigSessionFactory;
-import org.eclipse.jgit.transport.SshSessionFactory;
 import org.eclipse.jgit.transport.Transport;
-import org.eclipse.jgit.transport.OpenSshConfig.Host;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
-
-import com.jcraft.jsch.Session;
 
 public class VdbRepositoryImpl implements VdbRepository {
 	private File repoDir_;
@@ -49,31 +39,31 @@ public class VdbRepositoryImpl implements VdbRepository {
 	private final VdbInitializer initializer_;
 	private Repository gitRepo_;
 	private final Map<String, VdbCheckoutImpl> checkouts_ = new HashMap<String, VdbCheckoutImpl>();
-	
+
     private static final String BRANCH_REF_PREFIX = Constants.R_HEADS;
     private static final String REMOTES_REF_PREFIX = Constants.R_REMOTES;
-    private static final String TAG = "VdbRepository";
-	
+//    private static final String TAG = "VdbRepository";
+
 	public VdbRepositoryImpl(String name, File repoDir, VdbInitializer initializer)
 	throws IOException
 	{
 		repoDir_ = repoDir;
 		name_ = name;
 		initializer_ = initializer;
-		
-		initializeRepository();	
+
+		initializeRepository();
 	}
-	
+
 	public File getRepositoryDir()
 	{
 		return repoDir_;
 	}
-	
-	public Repository getGitRepository() 
+
+	public Repository getGitRepository()
 	{
 		return gitRepo_;
 	}
-	
+
     private void initializeRepository()
     {
     	try {
@@ -81,12 +71,12 @@ public class VdbRepositoryImpl implements VdbRepository {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
-    	
+
     	File gitDir = new File(repoDir_, ".git");
     	if (!gitDir.exists()) {
     		try {
 				gitRepo_.create();
-				
+
 				VdbCheckoutImpl master = VdbCheckoutImpl.createMaster(this, initializer_);
 				checkouts_.put(Constants.MASTER, master);
 			} catch (IOException e) {
@@ -94,7 +84,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 			}
     	}
     }
-    
+
     public File checkoutReference(String subdir, String reference) throws IOException
     {
     	File checkoutDir = new File(repoDir_, subdir);
@@ -109,15 +99,15 @@ public class VdbRepositoryImpl implements VdbRepository {
     	GitIndex idx = gitRepo_.getIndex();
     	idx.readTree(tree);
     	idx.checkout(checkoutDir);
-    	
+
     	return checkoutDir;
     }
-    
+
     public File checkoutBranch(String branchName) throws IOException
     {
     	return checkoutReference(branchName, BRANCH_REF_PREFIX + branchName);
     }
-    
+
     public File checkoutCommit(String sha1) throws IOException
     {
     	return checkoutReference(sha1, sha1);
@@ -129,7 +119,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 		ObjectId oId = gitRepo_.resolve(baseRef);
     	createBranchFromId(branchName, oId);
 	}
-	
+
     private void createBranchFromId(String branchName, ObjectId oId) throws IOException
     {
     	Ref ref = gitRepo_.getRef(BRANCH_REF_PREFIX + branchName);
@@ -147,7 +137,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 		} catch(IOException e) {
 			RefUpdate undoRu = gitRepo_.updateRef(BRANCH_REF_PREFIX + branchName);
 			undoRu.delete();
-			
+
 			throw e;
 		}
     }
@@ -158,13 +148,13 @@ public class VdbRepositoryImpl implements VdbRepository {
 		Map<String, Ref> branches = gitRepo_.getRefDatabase().getRefs(BRANCH_REF_PREFIX);
 		return branches.keySet();
 	}
-	
+
 	public Set<String> listRemotes() throws IOException
 	{
 		Config rc = gitRepo_.getConfig();
 		return rc.getSubsections(RemoteInfo.SECTION);
 	}
-	
+
 	@Override
 	public Set<String> listRemoteBranches() throws IOException
 	{
@@ -187,35 +177,35 @@ public class VdbRepositoryImpl implements VdbRepository {
 		}
 		return rw;
 	}
-	
+
 	public RevCommit getMergeBase(AnyObjectId... commitIds) throws IOException
 	{
 		if (commitIds.length < 2) {
 			throw new IllegalArgumentException("Need to specify at least 2 commits.");
 		}
-		
+
 		RevWalk walk = new RevWalk(gitRepo_);
 		walk.setRevFilter(RevFilter.MERGE_BASE);
 		walk.setTreeFilter(TreeFilter.ALL);
-	
+
 		for (AnyObjectId commitId : commitIds) {
 			walk.markStart(walk.parseCommit(commitId));
 		}
-		
+
 		RevCommit baseCommit = walk.next();
 		if (baseCommit == null) {
 			throw new IllegalStateException("Could not find merge base.");
 		}
 		return baseCommit;
 	}
-    
+
 	@Override
 	public synchronized VdbCheckout getBranch(String branchName) throws IOException
 	{
 		if (!checkouts_.containsKey(branchName)) {
 			// statements below throw if not successful
 			checkoutBranch(branchName);
-			
+
 			VdbCheckoutImpl branch = new VdbCheckoutImpl(this, branchName);
 			checkouts_.put(branchName, branch);
 		}
@@ -227,19 +217,19 @@ public class VdbRepositoryImpl implements VdbRepository {
 	{
 		if (!checkouts_.containsKey(sha1)) {
 			checkoutCommit(sha1);
-			
+
 			VdbCheckoutImpl checkout = new VdbCommitImpl(this, sha1);
 			checkouts_.put(sha1, checkout);
 		}
 		return checkouts_.get(sha1);
 	}
-	
+
 	@Override
 	public String getName()
 	{
 		return name_;
 	}
-	
+
 	/* package */ void releaseCheckout(String checkoutName)
 	{
 		checkouts_.remove(checkoutName);
@@ -267,7 +257,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 		RepositoryConfig rc = gitRepo_.getConfig();
 		rc.unsetSection(RemoteInfo.SECTION, remoteName);
 		rc.save();
-		
+
 		// now remove all references
 		RefDatabase refDb = gitRepo_.getRefDatabase();
 		String refsPrefix = REMOTES_REF_PREFIX + remoteName + "/";
@@ -334,7 +324,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 			throw new RuntimeException(e);
 		}
 	}
-	
+
 	@Override
 	public void pullFromRemote(String remoteName, ProgressMonitor monitor)
 			throws IOException
@@ -375,5 +365,5 @@ public class VdbRepositoryImpl implements VdbRepository {
 	{
 		// TODO(emilian): implement me
 		throw new RuntimeException("Not implemented");
-	}	
+	}
 }

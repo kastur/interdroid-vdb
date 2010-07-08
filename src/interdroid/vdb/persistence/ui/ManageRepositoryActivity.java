@@ -16,10 +16,10 @@ public class ManageRepositoryActivity extends TabActivity {
 	protected void onCreate(Bundle savedInstanceState)
 	{
 		super.onCreate(savedInstanceState);
-		
+
 		Intent intent = getIntent();
         UriMatch match = EntityUriMatcher.getMatch(intent.getData());
-        
+
         if (match.type != MatchType.REPOSITORY) {
         	throw new RuntimeException("Not a vdb repository URI: "
         			+ intent.getData());
@@ -27,17 +27,17 @@ public class ManageRepositoryActivity extends TabActivity {
 
 		final TabHost tabHost = getTabHost();
 
-	    tabHost.addTab(tabHost.newTabSpec("tab1")                                                                                   
+	    tabHost.addTab(tabHost.newTabSpec("tab1")
 	            .setIndicator("Branches")
 	            .setContent(new Intent(
 	            		ManageLocalBranchesActivity.ACTION_MANAGE_LOCAL_BRANCHES,
 	            		intent.getData())));
-	    
-	    tabHost.addTab(tabHost.newTabSpec("tab2")                                                                                   
+
+	    tabHost.addTab(tabHost.newTabSpec("tab2")
 	            .setIndicator("Peers")
 	            .setContent(new Intent(
 	            		ManageRemotesActivity.ACTION_MANAGE_REMOTES,
-	            		intent.getData())));	    
+	            		intent.getData())));
 	}
-    
+
 }

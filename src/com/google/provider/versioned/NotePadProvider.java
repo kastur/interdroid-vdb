@@ -4,6 +4,6 @@ import interdroid.vdb.content.GenericContentProvider;
 
 public class NotePadProvider extends GenericContentProvider {
 	public NotePadProvider() {
-		super("notes", Notes.class); 
+		super("notes", Notes.class);
 	}
 }

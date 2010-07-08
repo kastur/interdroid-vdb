@@ -6,7 +6,6 @@ import interdroid.vdb.content.EntityUriMatcher.MatchType;
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.persistence.api.VdbRepository;
 import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
-import interdroid.vdb.persistence.impl.VdbRepositoryImpl;
 
 import java.io.IOException;
 
@@ -27,26 +26,26 @@ import android.widget.Toast;
 public class AddBranchActivity extends Activity implements OnClickListener {
 	public static final String ACTION_ADD_BRANCH = "interdroid.vdb.action.ADD_BRANCH";
 	private static final int REQUEST_PICK_VERSION = 1;
-	
-	private UriMatch chosenBase_; 	
+
+	private UriMatch chosenBase_;
 	private VdbRepository vdbRepo_;
 	private EditText editRevision_, editName_;
 	private Button btnCreate_, btnCancel_, btnPick_;
-	
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState)
 	{
 		super.onCreate(savedInstanceState);
-			
+
 		final Intent intent = getIntent();
         UriMatch match = EntityUriMatcher.getMatch(intent.getData());
-        
+
         if (match.type != MatchType.REPOSITORY) {
         	throw new RuntimeException("Invalid URI, can only add branches to a repository. "
         			+ intent.getData());
         }
         vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(match.repositoryName);
-        
+
 		buildUI();
 	}
 
@@ -54,19 +53,19 @@ public class AddBranchActivity extends Activity implements OnClickListener {
 	{
 		setTitle("Create new branch");
 		setContentView(R.layout.add_branch_dialog);
-        
+
         editRevision_ = (EditText) findViewById(R.id.revision);
         editName_ = (EditText) findViewById(R.id.branch_name);
-        
+
         btnCreate_ = (Button) findViewById(R.id.create);
         btnCancel_ = (Button) findViewById(R.id.cancel);
         btnPick_ = (Button) findViewById(R.id.pick_revision);
-        
+
         btnCreate_.setOnClickListener(this);
         btnCancel_.setOnClickListener(this);
         btnPick_.setOnClickListener(this);
 	}
-	
+
 	@Override
 	protected void onActivityResult (int requestCode, int resultCode, Intent data)
 	{
@@ -94,7 +93,7 @@ public class AddBranchActivity extends Activity implements OnClickListener {
 	public void onClick(View v)
 	{
 		if (v == btnCreate_) {
-			VdbRepositoryImpl impl = (VdbRepositoryImpl) vdbRepo_;
+//			VdbRepositoryImpl impl = (VdbRepositoryImpl) vdbRepo_;
 			if (chosenBase_ == null) {
 				Toast.makeText(this, "Please pick a base revision.",
 						Toast.LENGTH_SHORT).show();
@@ -114,7 +113,7 @@ public class AddBranchActivity extends Activity implements OnClickListener {
 					return;
 				}
 				vdbRepo_.createBranch(name, chosenBase_.reference);
-				
+
 				Intent result = new Intent(Intent.ACTION_DEFAULT,
 						EntityUriBuilder.branchUri(vdbRepo_.getName(), name));
 				setResult(RESULT_OK, result);

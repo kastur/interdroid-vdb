@@ -19,16 +19,16 @@ import android.net.Uri;
 
 public class VdbMainContentProvider extends ContentProvider {
 	public static final String AUTHORITY = VdbMainContentProvider.class.getName().toLowerCase();
-	
+
 	private VdbConfig config_;
 	private static final Map<String,RepositoryInfo> repoInfos_
 			= new HashMap<String,RepositoryInfo>();
-	
+
 	private static class RepositoryInfo {
 		public final ContentProvider provider_;
 		public final VdbInitializer initializer_;
 		public final String name_;
-		
+
 		public RepositoryInfo(RepositoryConf conf)
 		{
 			try {
@@ -42,9 +42,9 @@ public class VdbMainContentProvider extends ContentProvider {
 			} catch (ClassNotFoundException e) {
 				throw new RuntimeException(e);
 			}
-		}		
+		}
 	}
-	
+
 	@Override
 	public boolean onCreate()
 	{
@@ -53,24 +53,24 @@ public class VdbMainContentProvider extends ContentProvider {
 		for (RepositoryConf repoConf : config_.getRepositories()) {
 			RepositoryInfo repoInfo = new RepositoryInfo(repoConf);
 			if (repoInfos_.containsKey(repoInfo.name_)) {
-				throw new RuntimeException("Invalid configuration, duplicate repository name " 
+				throw new RuntimeException("Invalid configuration, duplicate repository name "
 						+ repoInfo.name_);
 			}
 			try {
-				VdbRepositoryRegistry.getInstance().addRepository(getContext(), 
+				VdbRepositoryRegistry.getInstance().addRepository(getContext(),
 						repoInfo.name_, repoInfo.initializer_);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
 			repoInfos_.put(repoInfo.name_, repoInfo);
-			
+
 			// Do this at the end, since onCreate will be called in the child
 			// We want everything to be registered prior to this happening.
 			repoInfo.provider_.attachInfo(getContext(), null);
 		}
 		return true;
 	}
-	
+
 	private void validateUri(Uri uri, RepositoryInfo info, UriMatch match)
 	{
 		if (info == null) {
@@ -80,7 +80,7 @@ public class VdbMainContentProvider extends ContentProvider {
 			throw new IllegalArgumentException("Bad URI: only repository was specified. " + uri);
 		}
 	}
-	
+
 	@Override
 	public int delete(Uri uri, String selection, String[] selectionArgs)
 	{

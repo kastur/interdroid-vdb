@@ -8,35 +8,27 @@ import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 import interdroid.vdb.persistence.ui.RevisionsView.OnRevisionClickListener;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 
 import android.app.Activity;
-import android.app.ListActivity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.ArrayAdapter;
 
 public class ManageLocalBranchesActivity extends Activity implements OnRevisionClickListener {
 	public static String ACTION_MANAGE_LOCAL_BRANCHES = "interdroid.vdb.action.MANAGE_LOCAL_BRANCHES";
 	private VdbRepository vdbRepo_;
 	private static int REQUEST_ADD_BRANCH = 1;
-	
+
 	@Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
 		final Intent intent = getIntent();
         UriMatch match = EntityUriMatcher.getMatch(intent.getData());
-        
+
         if (match.type != MatchType.REPOSITORY) {
         	throw new RuntimeException("Invalid URI, can only add branches to a repository. "
         			+ intent.getData());
@@ -45,9 +37,9 @@ public class ManageLocalBranchesActivity extends Activity implements OnRevisionC
 
         buildUI();
 	}
-	
+
 	private RevisionsView revView_;
-	
+
 	private void buildUI()
 	{
 		revView_ = new RevisionsView(this, vdbRepo_);
@@ -55,19 +47,19 @@ public class ManageLocalBranchesActivity extends Activity implements OnRevisionC
 		revView_.setOnCreateContextMenuListener(this);
 		revView_.setOnRevisionClickListener(this);
 	}
-	
-    // Menu item ids	
+
+    // Menu item ids
 	public static final int MENU_ITEM_DELETE = Menu.FIRST;
     public static final int MENU_ITEM_VIEW = Menu.FIRST + 1;
     public static final int MENU_ITEM_ADD = Menu.FIRST + 2;
-	
+
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
         super.onPrepareOptionsMenu(menu);
-        
+
         return true;
     }
-    
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
@@ -75,18 +67,18 @@ public class ManageLocalBranchesActivity extends Activity implements OnRevisionC
         menu.add(0, MENU_ITEM_VIEW, 0, "View")
 	        .setShortcut('3', 'v')
 	        .setIcon(android.R.drawable.ic_menu_view);
-        
+
         menu.add(0, MENU_ITEM_ADD, 0, "Add branch")
                 .setShortcut('3', 'a')
                 .setIcon(android.R.drawable.ic_menu_add);
-        
+
         menu.add(1, MENU_ITEM_DELETE, 0, "Delete branch")
 	        .setShortcut('0', 'd')
 	        .setIcon(android.R.drawable.ic_menu_delete);
-        
+
         return true;
     }
-    
+
     @Override
 	protected void onActivityResult (int requestCode, int resultCode, Intent data)
 	{
@@ -94,20 +86,20 @@ public class ManageLocalBranchesActivity extends Activity implements OnRevisionC
 			revView_.refresh();
 		}
 	}
-    
+
     private void runViewActivity(Uri uri)
     {
 		Intent intent = new Intent(Intent.ACTION_VIEW, uri);
 		startActivity(intent);
     }
-    
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
     	if (item.getItemId() == MENU_ITEM_ADD) {
         	Intent addIntent = new Intent(AddBranchActivity.ACTION_ADD_BRANCH,
         			getIntent().getData());
             startActivityForResult(addIntent, REQUEST_ADD_BRANCH);
-            return true;    		
+            return true;
     	}
     	Uri selectedUri = revView_.getSelectedUri();
     	if (selectedUri == null) {

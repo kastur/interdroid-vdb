@@ -8,19 +8,19 @@ import java.io.Serializable;
  */
 public class MergeInfo implements Serializable {
 	private static final long serialVersionUID = -3951990737704349098L;
-	
+
 	/**
-	 * Sha1 commit identifiers for the references of this merge. 
+	 * Sha1 commit identifiers for the references of this merge.
 	 */
 	public String baseCommit_, theirCommit_, ourCommit_;
-	
+
 	/**
 	 * Whether the merge is resolved or still in progress.
 	 */
 	public boolean resolved_;
-	
+
 	public MergeInfo() {}
-	
+
 	@Override
 	public MergeInfo clone()
 	{
