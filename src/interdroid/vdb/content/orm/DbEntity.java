@@ -1,4 +1,4 @@
-package interdroid.vdb.content.metadata;
+package interdroid.vdb.content.orm;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

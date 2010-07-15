@@ -4,6 +4,7 @@ package interdroid.vdb.content;
 import java.util.ListIterator;
 
 import android.net.Uri;
+import android.util.Log;
 
 public class EntityUriMatcher {
 	public static enum MatchType {
@@ -29,6 +30,8 @@ public class EntityUriMatcher {
 			return null;
 		}
 	}
+
+	private static final String TAG = "VDB";
 
 	private EntityUriMatcher() {}
 
@@ -172,7 +175,7 @@ public class EntityUriMatcher {
 	 */
 	public static UriMatch getMatch(Uri uri) {
 		final UriMatch match = new UriMatch();
-
+		Log.d(TAG, "Matching URI: " + uri);
 		if (!VdbMainContentProvider.AUTHORITY.equals(uri.getAuthority())) {
 			throw new IllegalArgumentException("Unknown URI " + uri);
 		}

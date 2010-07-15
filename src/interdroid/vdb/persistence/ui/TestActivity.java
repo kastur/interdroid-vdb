@@ -9,22 +9,6 @@ import interdroid.vdb.persistence.impl.MergeHelper;
 import interdroid.vdb.persistence.impl.VdbRepositoryImpl;
 
 import java.io.IOException;
-//import java.net.URISyntaxException;
-//import java.util.ArrayList;
-//import java.util.List;
-//import java.util.Properties;
-
-//import org.eclipse.jgit.lib.NullProgressMonitor;
-//import org.eclipse.jgit.lib.Repository;
-//import org.eclipse.jgit.transport.RefSpec;
-//import org.eclipse.jgit.transport.RemoteConfig;
-//import org.eclipse.jgit.transport.SshConfigSessionFactory;
-//import org.eclipse.jgit.transport.SshSessionFactory;
-//import org.eclipse.jgit.transport.Transport;
-//import org.eclipse.jgit.transport.URIish;
-//import org.eclipse.jgit.transport.OpenSshConfig.Host;
-//
-//import com.jcraft.jsch.Session;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -45,7 +29,7 @@ public class TestActivity extends Activity {
         // startActivityForResult(intent, REQUEST_PICK_VERSION);
 
 		Intent intent = new Intent(ManageRepositoryActivity.ACTION_MANAGE_REPOSITORY,
-				EntityUriBuilder.repositoryUri("notes"));
+				EntityUriBuilder.repositoryUri("google.notes"));
 		startActivity(intent);
 	}
 
@@ -59,25 +43,25 @@ public class TestActivity extends Activity {
 
 			try {
 				MergeHelper helper = new MergeHelper(
-						VdbRepositoryRegistry.getInstance().getRepository("notes")
+						VdbRepositoryRegistry.getInstance().getRepository("google.notes")
 						.getBranch("temp"));
-				//helper.diff2("notes", "notes");
+				//helper.diff2("google.notes", "google.notes");
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 
 			VdbRepositoryImpl reg = (VdbRepositoryImpl)
-					VdbRepositoryRegistry.getInstance().getRepository("notes");
+					VdbRepositoryRegistry.getInstance().getRepository("google.notes");
 
 			Intent intent;
 
 			intent = new Intent(ManageRepositoryActivity.ACTION_MANAGE_REPOSITORY,
-					EntityUriBuilder.repositoryUri("notes"));
+					EntityUriBuilder.repositoryUri("google.notes"));
 			startActivity(intent);
 
 			if (false) {
-				Uri notesUri = Uri.withAppendedPath(data.getData(), "notes");
+				Uri notesUri = Uri.withAppendedPath(data.getData(), "google.notes");
 
 				intent = new Intent(Intent.ACTION_PICK, notesUri);
 				startActivity(intent);

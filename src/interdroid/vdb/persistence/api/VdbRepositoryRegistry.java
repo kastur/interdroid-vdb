@@ -14,9 +14,11 @@ import org.eclipse.jgit.transport.OpenSshConfig.Host;
 import com.jcraft.jsch.Session;
 
 import android.content.Context;
+import android.util.Log;
 
 public class VdbRepositoryRegistry {
 
+	private static final String TAG = "VdbRepoReg";
 	private static VdbRepositoryRegistry singletonInstance__;
 
 	private VdbRepositoryRegistry()
@@ -47,6 +49,7 @@ public class VdbRepositoryRegistry {
 			String repositoryName, VdbInitializer initializer)
 	throws IOException
 	{
+		Log.d(TAG, "Registering repository: " + repositoryName);
 		if (repositories_.containsKey(repositoryName)) {
 			throw new IllegalStateException("Repository " + repositoryName
 					+ " was already registered");

@@ -16,13 +16,17 @@ import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
+import android.util.Log;
 
 public class VdbMainContentProvider extends ContentProvider {
 	public static final String AUTHORITY = VdbMainContentProvider.class.getName().toLowerCase();
+	public static final String BASE_TYPE = "vnd." + VdbMainContentProvider.class.getPackage().getName().toLowerCase();
 
 	private VdbConfig config_;
 	private static final Map<String,RepositoryInfo> repoInfos_
 			= new HashMap<String,RepositoryInfo>();
+
+	private static final String TAG = "VdbMCP";
 
 	private static class RepositoryInfo {
 		public final ContentProvider provider_;
@@ -57,6 +61,7 @@ public class VdbMainContentProvider extends ContentProvider {
 						+ repoInfo.name_);
 			}
 			try {
+				Log.d(TAG, "Adding repository: " + repoInfo.name_);
 				VdbRepositoryRegistry.getInstance().addRepository(getContext(),
 						repoInfo.name_, repoInfo.initializer_);
 			} catch (IOException e) {
@@ -101,15 +106,15 @@ public class VdbMainContentProvider extends ContentProvider {
 		if (match.entityName == null) { // points to actual commit/branch
 			switch(match.type) {
 			case REPOSITORY:
-				return "vnd.emilianm.versioning/repository";
+				return BASE_TYPE + "/repository";
 			case COMMIT:
-				return "vnd.emilianm.versioning/commit";
+				return BASE_TYPE + "/commit";
 			case LOCAL_BRANCH:
-				return "vnd.emilianm.versioning/branch.local";
+				return BASE_TYPE + "/branch.local";
 			case REMOTE_BRANCH:
-				return "vnd.emilianm.versioning/branch.remote";
+				return BASE_TYPE + "/branch.remote";
 			case REMOTE:
-				return "vnd.emilianm.versioning/remote";
+				return BASE_TYPE + "/remote";
 			}
 		}
 		return info.provider_.getType(uri);

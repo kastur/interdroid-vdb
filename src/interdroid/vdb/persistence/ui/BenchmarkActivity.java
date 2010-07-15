@@ -58,7 +58,7 @@ public class BenchmarkActivity extends Activity implements OnClickListener {
 			{
 				try{
 					benchmarkContentProvider(com.google.provider.NotePad.Notes.CONTENT_URI);
-		 			benchmarkContentProvider(com.google.provider.versioned.Notes.CONTENT_URI);
+		 			benchmarkContentProvider(com.google.provider.versioned.orm.Notes.CONTENT_URI);
 
 					benchmarkCommit();
 		 			benchmarkCheckout();

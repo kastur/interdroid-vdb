@@ -4,9 +4,9 @@
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
      You may obtain a copy of the License at
-  
+
           http://www.apache.org/licenses/LICENSE-2.0
-  
+
      Unless required by applicable law or agreed to in writing, software
      distributed under the License is distributed on an "AS IS" BASIS,
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,15 +23,15 @@
     package="com.example.android.notepad"
 >
     <uses-permission android:name="android.permission.INTERNET" />
-    
+
     <application android:icon="@drawable/app_notes"
         android:label="@string/app_name"
     >
         <provider android:name="interdroid.vdb.content.VdbMainContentProvider"
             android:authorities="interdroid.vdb.content.vdbmaincontentprovider"
         />
-        
-        <provider android:name="NotePadProvider"
+
+        <provider android:name="com.google.provider.versioned.avro.NotePadProvider"
             android:authorities="com.google.provider.NotePad"
         />
 
@@ -43,7 +43,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-<!--        
+<!--
         <activity android:name="interdroid.vdb.persistence.ui.BenchmarkActivity"
         		  android:label="@string/title_persistencebrowser">
             <intent-filter>
@@ -56,7 +56,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.PICK" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.emilianm.versioning/repository" />
+                <data android:mimeType="vnd.interdroid.vdb.content/repository" />
             </intent-filter>
         </activity>
 
@@ -64,59 +64,59 @@
             <intent-filter>
                 <action android:name="interdroid.vdb.action.COMMIT" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.emilianm.versioning/branch.local" />
+                <data android:mimeType="vnd.interdroid.vdb.content/branch.local" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="interdroid.vdb.persistence.ui.ManageLocalBranchesActivity">
             <intent-filter>
                 <action android:name="interdroid.vdb.action.MANAGE_LOCAL_BRANCHES" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.emilianm.versioning/repository" />
+                <data android:mimeType="vnd.interdroid.vdb.content/repository" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="interdroid.vdb.persistence.ui.AddBranchActivity">
             <intent-filter>
                 <action android:name="interdroid.vdb.action.ADD_BRANCH" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.emilianm.versioning/repository" />
+                <data android:mimeType="vnd.interdroid.vdb.content/repository" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="interdroid.vdb.persistence.ui.EditRemoteActivity">
             <intent-filter>
                 <action android:name="interdroid.vdb.action.ADD_REMOTE" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.emilianm.versioning/repository" />
+                <data android:mimeType="vnd.interdroid.vdb.content/repository" />
             </intent-filter>
-            
+
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <action android:name="interdroid.vdb.action.EDIT_REMOTE" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.emilianm.versioning/remote" />
+                <data android:mimeType="vnd.interdroid.vdb.content/remote" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="interdroid.vdb.persistence.ui.ManageRepositoryActivity">
             <intent-filter>
                 <action android:name="interdroid.vdb.action.MANAGE_REPOSITORY" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.emilianm.versioning/repository" />
+                <data android:mimeType="vnd.interdroid.vdb.content/repository" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="interdroid.vdb.persistence.ui.ManageRemotesActivity">
             <intent-filter>
                 <action android:name="interdroid.vdb.action.MANAGE_REMOTES" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.emilianm.versioning/repository" />
+                <data android:mimeType="vnd.interdroid.vdb.content/repository" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="NotesList" android:label="@string/title_notes_list">
-            <!--  
+            <!--
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -127,18 +127,18 @@
                 <action android:name="android.intent.action.EDIT" />
                 <action android:name="android.intent.action.PICK" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.android.cursor.dir/vnd.google.note" />
-                <data android:mimeType="vnd.emilianm.versioning/branch.local" />
-                <data android:mimeType="vnd.emilianm.versioning/branch.remote" />
-                <data android:mimeType="vnd.emilianm.versioning/commit" />
+                <data android:mimeType="vnd.android.cursor.dir/vnd.google.notes" />
+                <data android:mimeType="vnd.interdroid.vdb.content/branch.local" />
+                <data android:mimeType="vnd.interdroid.vdb.content/branch.remote" />
+                <data android:mimeType="vnd.interdroid.vdb.content/commit" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.GET_CONTENT" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.android.cursor.item/vnd.google.note" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.google.notes" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="NoteEditor"
             android:theme="@android:style/Theme.Light"
             android:label="@string/title_note"
@@ -152,7 +152,7 @@
                 <action android:name="android.intent.action.EDIT" />
                 <action android:name="com.android.notepad.action.EDIT_NOTE" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.android.cursor.item/vnd.google.note" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.google.notes" />
             </intent-filter>
 
             <!-- This filter says that we can create a new note inside
@@ -160,11 +160,11 @@
             <intent-filter>
                 <action android:name="android.intent.action.INSERT" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.android.cursor.dir/vnd.google.note" />
+                <data android:mimeType="vnd.android.cursor.dir/vnd.google.notes" />
             </intent-filter>
 
         </activity>
-        
+
 		<activity android:name="TitleEditor" android:label="@string/title_edit_title"
 				android:theme="@android:style/Theme.Dialog"
                 android:windowSoftInputMode="stateVisible">
@@ -186,10 +186,10 @@
                      can perform when selecting this type of data. -->
                 <category android:name="android.intent.category.SELECTED_ALTERNATIVE" />
                 <!-- This is the data type we operate on. -->
-                <data android:mimeType="vnd.android.cursor.item/vnd.google.note" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.google.notes" />
             </intent-filter>
         </activity>
-        
+
     </application>
 </manifest>
 

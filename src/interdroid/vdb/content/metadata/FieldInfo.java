@@ -1,25 +1,16 @@
 package interdroid.vdb.content.metadata;
 
-import interdroid.vdb.content.metadata.DbField.DatabaseFieldTypes;
-
-import java.lang.reflect.Field;
-
-
-public class FieldInfo {
+public abstract class FieldInfo {
 	public final String fieldName;
-	public final DbField.DatabaseFieldTypes dbType;
 	public final boolean isID;
+	public final DatabaseFieldTypes dbType;
 
-	private FieldInfo(Field f, DbField fieldOpt) {
-		try {
-			fieldName = (String)f.get(null);
-		} catch (IllegalAccessException e) {
-			throw new RuntimeException(e);
-		}
+	protected FieldInfo(String fieldName, DatabaseFieldTypes dbType, boolean isID) {
+		this.dbType = dbType;
+		this.isID = isID;
+		this.fieldName = fieldName;
 
-		dbType = fieldOpt.dbType();
-		isID = fieldOpt.isID();
-		if (isID && fieldOpt.dbType() != DatabaseFieldTypes.INTEGER) {
+		if (isID && dbType != DatabaseFieldTypes.INTEGER) {
 			throw new IllegalArgumentException("Only integer types are supported for the ID field.");
 		}
 		if (isID && !"_id".equals(fieldName)) {
@@ -27,11 +18,8 @@ public class FieldInfo {
 		}
 	}
 
-	public static FieldInfo buildInfo(Field f) {
-		DbField fieldOpt = f.getAnnotation(DbField.class);
-		if (fieldOpt == null) {
-			return null;
-		}
-		return new FieldInfo(f, fieldOpt);
+	public String dbTypeName() {
+		return dbType.name();
 	}
+
 }

@@ -20,7 +20,7 @@ import interdroid.vdb.content.EntityUriMatcher;
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.persistence.ui.CommitActivity;
 
-import com.example.android.notepad.NotePad.Notes;
+import com.google.provider.versioned.avro.Notes;
 
 import android.app.ListActivity;
 import android.content.ComponentName;
@@ -87,7 +87,7 @@ public class NotesList extends ListActivity {
     	}
     	// In case it's a branch/remote/repository, add the notes table
     	if (match.entityName == null) {
-    		match.entityName = "notes";
+    		match.entityName = "google.notes";
     		getIntent().setData(match.buildUri());
     	}
     	// For write checkouts we hold the branch Uri for launching the commit activity

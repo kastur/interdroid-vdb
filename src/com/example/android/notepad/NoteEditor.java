@@ -18,7 +18,7 @@ package com.example.android.notepad;
 
 import interdroid.vdb.content.EntityUriMatcher;
 
-import com.example.android.notepad.NotePad.Notes;
+import com.google.provider.versioned.avro.Notes;
 
 import android.app.Activity;
 import android.content.ComponentName;
@@ -114,14 +114,29 @@ public class NoteEditor extends Activity {
 
         final Intent intent = getIntent();
 
-    	mReadOnly = EntityUriMatcher.getMatch(intent.getData()).isReadOnlyCheckout();
+        if (intent.getData() == null) {
+        	mReadOnly = false;
+        	mUri = Notes.CONTENT_URI;
+        } else {
+        	mReadOnly = EntityUriMatcher.getMatch(intent.getData()).isReadOnlyCheckout();
+            mUri = intent.getData();
+        }
+        Log.d(TAG, "Handling uri: " + mUri + " read only: " + mReadOnly);
+
         // Do some setup based on the action being performed.
-        final String action = intent.getAction();
+        String action = intent.getAction();
+        Log.d(TAG, "Performing action: " + action);
+        if (action == null) {
+        	action = Intent.ACTION_INSERT;
+        }
         if (Intent.ACTION_EDIT.equals(action)) {
             // Requested to edit: set that state, and the data being edited.
             mState = STATE_EDIT;
-            mUri = intent.getData();
-        } else if (Intent.ACTION_INSERT.equals(action)) {
+            if (intent.getData() == null) {
+            	Log.e(TAG, "Cannot edit no uri. Exiting.");
+            	finish();
+            }
+        } else if (Intent.ACTION_INSERT.equals(action) || Intent.ACTION_MAIN.equals(action)) {
         	if (mReadOnly) {
         		Log.e(TAG, "Cannot insert into a readOnly uri, exiting.");
         		finish();
@@ -130,16 +145,17 @@ public class NoteEditor extends Activity {
             // Requested to insert: set that state, and create a new entry
             // in the container.
             mState = STATE_INSERT;
-            mUri = getContentResolver().insert(intent.getData(), null);
+            Uri tempUri = getContentResolver().insert(mUri, null);
 
             // If we were unable to create a new note, then just finish
             // this activity.  A RESULT_CANCELED will be sent back to the
             // original activity if they requested a result.
-            if (mUri == null) {
-                Log.e(TAG, "Failed to insert new note into " + getIntent().getData());
+            if (tempUri == null) {
+                Log.e(TAG, "Failed to insert new note into " + mUri);
                 finish();
                 return;
             }
+            mUri = tempUri;
 
             // The new entry was created, so assume all will end well and
             // set the result to be returned.
@@ -157,6 +173,8 @@ public class NoteEditor extends Activity {
 
         // The text view for our note, identified by its ID in the XML file.
         mText = (EditText) findViewById(R.id.note);
+
+        Log.d(TAG, "Getting cursor for note: " + mUri);
 
         // Get the note!
         mCursor = managedQuery(mUri, PROJECTION, null, null, null);
@@ -190,7 +208,8 @@ public class NoteEditor extends Activity {
             // but leave the user where they were (retain the cursor position
             // etc).  This version of setText does that for us.
             String note = mCursor.getString(COLUMN_INDEX_NOTE);
-            mText.setTextKeepState(note);
+            if (note != null)
+            	mText.setTextKeepState(note);
 
             // If we hadn't previously retrieved the original text, do so
             // now.  This allows the user to revert their changes.

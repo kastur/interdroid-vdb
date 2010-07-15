@@ -1,5 +1,7 @@
 package interdroid.vdb.content;
 
+import java.io.IOException;
+
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.content.metadata.EntityInfo;
 import interdroid.vdb.content.metadata.FieldInfo;
@@ -10,51 +12,56 @@ import interdroid.vdb.persistence.api.VdbInitializerFactory;
 import interdroid.vdb.persistence.api.VdbRepository;
 import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.DatabaseUtils;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.text.TextUtils;
+import android.util.Log;
 
-public class GenericContentProvider extends ContentProvider implements VdbInitializerFactory {
-    private final Metadata metadata_;
-    private final String name_;
-	private VdbRepository vdbRepo_;
+public abstract class GenericContentProvider extends ContentProvider implements VdbInitializerFactory {
+    private static final String TAG = "VDB";
+	protected final Metadata metadata_;
+    protected final String name_;
+	protected VdbRepository vdbRepo_;
+
+	private String escapeName(String name) {
+		return DatabaseUtils.sqlEscapeString(name.replace('.', '_'));
+	}
 
 	public class DatabaseInitializer implements VdbInitializer {
 	    @Override
 		public void onCreate(SQLiteDatabase db)
 	    {
-	    	// TODO(emilian): sql encoding
+	    	Log.d(TAG, "Initializing database for: " + name_);
 	    	for (EntityInfo entity : metadata_.getEntities()) {
 	    		boolean firstField = true;
-	    		db.execSQL("DROP TABLE IF EXISTS " + entity.name());
+	    		Log.d(TAG, "Creating table for: " + entity.name() + ":" + escapeName(entity.name()));
+	    		db.execSQL("DROP TABLE IF EXISTS " + escapeName(entity.name()));
 
 	    		StringBuilder createSql = new StringBuilder("CREATE TABLE ");
-	    		createSql.append(entity.name());
+	    		createSql.append(escapeName(entity.name()));
 	    		createSql.append("(");
-	    		for (FieldInfo field : entity.fields.values()) {
+	    		for (FieldInfo field : entity.getFields()) {
 	    			if (!firstField) {
 	    				createSql.append(",\n");
 	    			} else {
 	    				firstField = false;
 	    			}
-	    			createSql.append(field.fieldName);
+	    			createSql.append(DatabaseUtils.sqlEscapeString(field.fieldName));
 	    			createSql.append(" ");
-	    			createSql.append(field.dbType.name());
+	    			createSql.append(field.dbTypeName());
 	    			if (field.isID) {
 	    				createSql.append(" PRIMARY KEY");
 	    			}
 	    		}
 	    		createSql.append(")");
+	    		Log.d(TAG, "Creating: " + createSql.toString());
 	    		db.execSQL(createSql.toString());
 	    	}
 	    }
@@ -70,10 +77,10 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
         return true;
     }
 
-	public GenericContentProvider(String name, Class<?>... schemaClasses)
+	public GenericContentProvider(String name, Metadata metadata)
 	{
 		name_ = name;
-		metadata_ = new Metadata(schemaClasses);
+		metadata_ = metadata;
 	}
 
 	@Override
@@ -109,7 +116,12 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		if (result.entityIdentifier != null) { /* don't accept ID queries */
 			throw new IllegalArgumentException("Invalid item URI " + uri);
 		}
+		Log.d(TAG, "Getting entity: " + result.entityName);
 		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
+		Log.d(TAG, "Got info: " + entityInfo);
+		if (entityInfo == null) {
+			throw new RuntimeException("Unable to find entity for: " + result.entityName);
+		}
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
         ContentValues values;
@@ -119,39 +131,32 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
             values = new ContentValues();
         }
 
-        try {
-	        // TODO(emilian): make this cleaner
-	        Method m = entityInfo.clazz.getMethod("preInsertHook", ContentValues.class);
-	        if (m != null) {
-	        	m.invoke(null, values);
-	        }
-        } catch(NoSuchMethodException e) {
-        	// ignore .. user has no hook
-		} catch (IllegalAccessException e) {
-			throw new RuntimeException(e);
-		} catch (InvocationTargetException e) {
-			throw new RuntimeException(e);
-		}
+        // Propogate the change to the preInsertHook if there is one
+        ContentChangeHandler handler = ContentChangeHandler.getHandler(entityInfo.name());
+        if (handler != null) {
+        	handler.preInsertHook(values);
+        }
 
         SQLiteDatabase db;
-		try {
-			db = vdbBranch.getReadWriteDatabase();
-		} catch (IOException e) {
-			throw new RuntimeException("getReadWriteDatabase failed", e);
-		}
+        try {
+        	db = vdbBranch.getReadWriteDatabase();
+        } catch (IOException e) {
+        	throw new RuntimeException("getReadWriteDatabase failed", e);
+        }
 
-		try {
-			long rowId = db.insert(entityInfo.name(), entityInfo.idField.fieldName, values);
-	        if (rowId > 0) {
-	            Uri noteUri = ContentUris.withAppendedId(uri, rowId);
-	            getContext().getContentResolver().notifyChange(noteUri, null);
-	            return noteUri;
-	        }
+        try {
+        	Log.d(TAG, "Inserting: " + entityInfo.name() + " : " + entityInfo.idField.fieldName + ":" + values.getAsString(entityInfo.idField.fieldName) + " : " + values.size());
+        	long rowId = db.insert(escapeName(entityInfo.name()), entityInfo.idField.fieldName, values);
+        	if (rowId > 0) {
+        		Uri noteUri = ContentUris.withAppendedId(uri, rowId);
+        		getContext().getContentResolver().notifyChange(noteUri, null);
+        		return noteUri;
+        	}
 
-	        throw new SQLException("Failed to insert row into " + uri);
-		} finally {
-			vdbBranch.releaseDatabase();
-		}
+        	throw new SQLException("Failed to insert row into " + uri);
+        } finally {
+        	vdbBranch.releaseDatabase();
+        }
 
 	}
 
@@ -161,17 +166,18 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 	{
         // Validate the requested uri
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
+		Log.d(TAG, "Query for: " + result.entityName);
 		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
 
         if (result.entityIdentifier != null) {
-			qb.setTables(entityInfo.name());
+			qb.setTables(escapeName(entityInfo.name()));
 			// qb.setProjectionMap(sNotesProjectionMap);
 			qb.appendWhere(entityInfo.idField.fieldName + "=" + result.entityIdentifier);
         } else {
-        	qb.setTables(entityInfo.name());
+        	qb.setTables(escapeName(entityInfo.name()));
         }
 
         // Get the database and run the query
@@ -185,6 +191,7 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		// TODO(emilian): default sort order
 
 		try {
+			Log.d(TAG, "Querying with: " + qb.buildQuery(projection, selection, selectionArgs, null, null, sortOrder, null));
 			Cursor c = qb.query(db, projection, selection, selectionArgs, null, null, sortOrder);
 
 	        // Tell the cursor what uri to watch, so it knows when its source data changes
@@ -213,11 +220,12 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
         int count = 0;
 		try {
 	        if (result.entityIdentifier != null) {
-	            count = db.update(entityInfo.name(), values,
+	        	Log.d(TAG, "Updating: " + entityInfo.name() + " : " + values);
+	            count = db.update(escapeName(entityInfo.name()), values,
 	            		entityInfo.idField.fieldName + "=" + result.entityIdentifier
 	                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
 	        } else {
-	        	count = db.update(entityInfo.name(), values, where, whereArgs);
+	        	count = db.update(escapeName(entityInfo.name()), values, where, whereArgs);
 	        }
 		} finally {
 			vdbBranch.releaseDatabase();
@@ -255,11 +263,13 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 		try {
 	        int count;
 	        if (result.entityIdentifier != null) {
-	            count = db.delete(entityInfo.name(),
+	        	Log.d(TAG, "Deleting: " + entityInfo.name());
+
+	            count = db.delete(escapeName(entityInfo.name()),
 	            		entityInfo.idField.fieldName + "=" + result.entityIdentifier
 	                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
 	        } else {
-	        	count = db.delete(entityInfo.name(), where, whereArgs);
+	        	count = db.delete(escapeName(entityInfo.name()), where, whereArgs);
 	        }
 
 	        getContext().getContentResolver().notifyChange(uri, null);
@@ -268,5 +278,4 @@ public class GenericContentProvider extends ContentProvider implements VdbInitia
 			vdbBranch.releaseDatabase();
 		}
 	}
-
 }

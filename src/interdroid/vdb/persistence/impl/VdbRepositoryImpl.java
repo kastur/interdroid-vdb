@@ -33,6 +33,8 @@ import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.Transport;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
 
+import android.util.Log;
+
 public class VdbRepositoryImpl implements VdbRepository {
 	private File repoDir_;
 	private final String name_;
@@ -42,7 +44,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 
     private static final String BRANCH_REF_PREFIX = Constants.R_HEADS;
     private static final String REMOTES_REF_PREFIX = Constants.R_REMOTES;
-//    private static final String TAG = "VdbRepository";
+	private static final String TAG = "VdbRepoImpl";
 
 	public VdbRepositoryImpl(String name, File repoDir, VdbInitializer initializer)
 	throws IOException
@@ -76,7 +78,7 @@ public class VdbRepositoryImpl implements VdbRepository {
     	if (!gitDir.exists()) {
     		try {
 				gitRepo_.create();
-
+				Log.d(TAG, "Creating master.");
 				VdbCheckoutImpl master = VdbCheckoutImpl.createMaster(this, initializer_);
 				checkouts_.put(Constants.MASTER, master);
 			} catch (IOException e) {

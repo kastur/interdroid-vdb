@@ -163,6 +163,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 			VdbInitializer initializer)
 	throws IOException
     {
+		Log.d(TAG, "Creating master for: " + parentRepo.getName());
 		File masterDir = new File(parentRepo.getRepositoryDir(), Constants.MASTER);
 		masterDir.mkdirs();
 
