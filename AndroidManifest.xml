@@ -30,14 +30,6 @@
         <provider android:name="interdroid.vdb.content.VdbMainContentProvider"
             android:authorities="interdroid.vdb.content.vdbmaincontentprovider"
         />
-
-        <activity android:name="interdroid.vdb.persistence.ui.TestActivity"
-        		  android:label="@string/title_persistencebrowser">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
 <!--
         <activity android:name="interdroid.vdb.persistence.ui.BenchmarkActivity"
         		  android:label="@string/title_persistencebrowser">
