@@ -24,7 +24,6 @@ import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.RepositoryConfig;
 import org.eclipse.jgit.lib.Tree;
-import org.eclipse.jgit.lib.GitIndex.Entry;
 import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;

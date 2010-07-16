@@ -13,6 +13,10 @@ public class ORMEntityInfo extends EntityInfo {
 		return options.name();
 	}
 
+	public String namespace() {
+		return "";
+	}
+
 	public String contentType() {
 		return options.contentType();
 	}
@@ -34,16 +38,12 @@ public class ORMEntityInfo extends EntityInfo {
 			FieldInfo fieldInfo = ORMFieldInfo.buildInfo(f);
 			if (fieldInfo != null) {
 				fields.put(fieldInfo.fieldName, fieldInfo);
-				if (fieldInfo.isID) {
-					if (idField == null) {
-						idField = fieldInfo;
-					} else {
-						throw new IllegalArgumentException("The class specified multiple ID columns.");
-					}
+				if (fieldInfo.isKey) {
+					this.key.add(fieldInfo);
 				}
 			}
 		}
-		if (idField == null) {
+		if (key.size() == 0) {
 			throw new IllegalArgumentException("The class did not specify an id field.");
 		}
 	}

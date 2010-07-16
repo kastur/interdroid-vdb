@@ -6,54 +6,67 @@ import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.Schema.Type;
 
-import interdroid.vdb.content.metadata.DatabaseFieldTypes;
+import interdroid.vdb.content.metadata.DatabaseFieldType;
 import interdroid.vdb.content.metadata.FieldInfo;
+import interdroid.vdb.content.metadata.Metadata;
 
 public class AvroFieldInfo extends FieldInfo {
 
-	protected AvroFieldInfo(Schema.Field field) {
-		super(field.name(), getFieldType(field), isFieldId(field));
+	public Schema schema_;
+
+	public AvroFieldInfo(Schema.Field field) {
+		this(field, false);
 	}
 
-	private static boolean isFieldId(Field field) {
-		return ("_id".equals(field.name()) && getFieldType(field) == DatabaseFieldTypes.INTEGER);
+	protected AvroFieldInfo(Schema.Field field, boolean isKey) {
+		super(field.name(), getFieldType(field.schema()), isKey);
+		schema_ = field.schema();
 	}
 
-	private static DatabaseFieldTypes getFieldType(Field field) {
-		switch (field.schema().getType()) {
+	protected AvroFieldInfo(Schema schema, Metadata avroMetadata) {
+		super(schema.getName(), getFieldType(schema), false);
+		schema_ = schema;
+	}
+
+	private static DatabaseFieldType getFieldType(Schema schema) {
+		switch (schema.getType()) {
 		case BYTES:
 		case FIXED:
-			return DatabaseFieldTypes.BLOB;
+			return DatabaseFieldType.BLOB;
 		case DOUBLE:
 		case FLOAT:
-			return DatabaseFieldTypes.REAL;
+			return DatabaseFieldType.REAL_NUMBER;
 		case INT:
 		case LONG:
 		case BOOLEAN:
-			return DatabaseFieldTypes.INTEGER;
+			return DatabaseFieldType.INTEGER;
 		case STRING:
-			return DatabaseFieldTypes.TEXT;
+			return DatabaseFieldType.TEXT;
+		case ARRAY:
+			return DatabaseFieldType.ONE_TO_MANY_INT;
+		case RECORD:
+		case ENUM:
+			return DatabaseFieldType.ONE_TO_ONE;
+		case MAP:
+			return DatabaseFieldType.ONE_TO_MANY_STRING;
 		case UNION:
 			// We allow unions of any single of the above types and NULL.
-			Schema unionSchema = field.schema();
-			List<Field>fields = unionSchema.getFields();
+			List<Field>fields = schema.getFields();
 			if (fields.size() == 2) {
 				boolean zeroIsNull = fields.get(0).schema().getType() == Type.NULL;
 				boolean oneIsNull = fields.get(1).schema().getType() == Type.NULL;
 				if ((zeroIsNull || oneIsNull) && (!zeroIsNull && !oneIsNull)) {
 					if (zeroIsNull) {
-						return getFieldType(fields.get(0));
+						return getFieldType(fields.get(0).schema());
 					} else {
-						return getFieldType(fields.get(1));
+						return getFieldType(fields.get(1).schema());
 					}
 				}
 			}
-		case NULL:
-		case ARRAY:
-		case MAP:
-		case RECORD:
+			// Intentional Fall Through
 		default:
-			throw new RuntimeException("Unsupported Avro Field Type: " + field);
+		case NULL:
+			throw new RuntimeException("Unsupported Avro Field Type: " + schema.toString());
 		}
 	}
 

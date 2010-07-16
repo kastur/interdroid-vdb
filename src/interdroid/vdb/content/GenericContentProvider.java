@@ -1,8 +1,10 @@
 package interdroid.vdb.content;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
+import interdroid.vdb.content.metadata.DatabaseFieldType;
 import interdroid.vdb.content.metadata.EntityInfo;
 import interdroid.vdb.content.metadata.FieldInfo;
 import interdroid.vdb.content.metadata.Metadata;
@@ -25,46 +27,131 @@ import android.text.TextUtils;
 import android.util.Log;
 
 public abstract class GenericContentProvider extends ContentProvider implements VdbInitializerFactory {
-    private static final String TAG = "VDB";
+	private static final String TAG = "VDB";
 	protected final Metadata metadata_;
-    protected final String name_;
+	protected final String name_;
 	protected VdbRepository vdbRepo_;
 
-	private String escapeName(String name) {
-		return DatabaseUtils.sqlEscapeString(name.replace('.', '_'));
+	// TODO: (nick) Support for multiple key tables?
+
+	private String escapeName(EntityInfo entity) {
+		// Don't include the namespace for entities that match our name for simplicity
+		if (name_.equals(entity.namespace())) {
+			return DatabaseUtils.sqlEscapeString(entity.name().replace('.', '_'));
+		} else {
+			// But entities in other namespaces we use the full namespace. This shouldn't happen often.
+			return DatabaseUtils.sqlEscapeString(entity.namespace().replace('.', '_') + "_" + entity.name().replace('.', '_'));
+		}
 	}
 
 	public class DatabaseInitializer implements VdbInitializer {
-	    @Override
+		@Override
 		public void onCreate(SQLiteDatabase db)
-	    {
-	    	Log.d(TAG, "Initializing database for: " + name_);
-	    	for (EntityInfo entity : metadata_.getEntities()) {
-	    		boolean firstField = true;
-	    		Log.d(TAG, "Creating table for: " + entity.name() + ":" + escapeName(entity.name()));
-	    		db.execSQL("DROP TABLE IF EXISTS " + escapeName(entity.name()));
+		{
+			Log.d(TAG, "Initializing database for: " + name_);
+			for (EntityInfo entity : metadata_.getEntities()) {
+				// Only handle root entities.
+				// Children get recursed so foreign key constraints all point up
+				if (entity.parentEntity == null) {
+					buildTables(db, entity);
+				}
+			}
+		}
 
-	    		StringBuilder createSql = new StringBuilder("CREATE TABLE ");
-	    		createSql.append(escapeName(entity.name()));
-	    		createSql.append("(");
-	    		for (FieldInfo field : entity.getFields()) {
-	    			if (!firstField) {
-	    				createSql.append(",\n");
-	    			} else {
-	    				firstField = false;
-	    			}
-	    			createSql.append(DatabaseUtils.sqlEscapeString(field.fieldName));
-	    			createSql.append(" ");
-	    			createSql.append(field.dbTypeName());
-	    			if (field.isID) {
-	    				createSql.append(" PRIMARY KEY");
-	    			}
-	    		}
-	    		createSql.append(")");
-	    		Log.d(TAG, "Creating: " + createSql.toString());
-	    		db.execSQL(createSql.toString());
-	    	}
-	    }
+		private void buildTables(SQLiteDatabase db, EntityInfo entity) {
+			boolean firstField = true;
+			ArrayList<EntityInfo>children = new ArrayList<EntityInfo>();
+
+			Log.d(TAG, "Creating table for: " + entity.namespace() + " : " + entity.name() + ":" + escapeName(entity));
+			db.execSQL("DROP TABLE IF EXISTS " + escapeName(entity));
+
+			StringBuilder createSql = new StringBuilder("CREATE TABLE ");
+			createSql.append(escapeName(entity));
+			createSql.append("(");
+			for (FieldInfo field : entity.getFields()) {
+				switch (field.dbType) {
+				case ONE_TO_MANY_INT:
+				case ONE_TO_MANY_STRING:
+					// Skip these since they are handled by putting the key for this one in the targetEntity
+					// but queue the child to be handled when we are done with this table.
+					children.add(field.targetEntity);
+					break;
+				case ONE_TO_ONE:
+					// First we need to build the child table so we can do the foreign key on this one
+					buildTables(db, field.targetEntity);
+
+					if (!firstField) {
+						createSql.append(",\n");
+					} else {
+						firstField = false;
+					}
+					createSql.append(DatabaseUtils.sqlEscapeString(field.fieldName));
+					createSql.append(" ");
+					createSql.append(DatabaseFieldType.INTEGER);
+					createSql.append(" REFERENCES ");
+					createSql.append(escapeName(field.targetEntity));
+					createSql.append("(");
+					createSql.append(field.targetField.fieldName);
+					createSql.append(")");
+					createSql.append(" DEFERRABLE");
+					break;
+				default:
+					if (!firstField) {
+						createSql.append(",\n");
+					} else {
+						firstField = false;
+					}
+					createSql.append(DatabaseUtils.sqlEscapeString(field.fieldName));
+					createSql.append(" ");
+					createSql.append(field.dbTypeName());
+					if (field.targetEntity != null) {
+						createSql.append(" REFERENCES ");
+						createSql.append(escapeName(field.targetEntity));
+						createSql.append("(");
+						createSql.append(field.targetField.fieldName);
+						createSql.append(") DEFERRABLE");
+					}
+					break;
+				}
+			}
+
+			// Now add the primary key constraint
+			createSql.append(", ");
+			createSql.append(" PRIMARY KEY (");
+			firstField = true;
+			for(FieldInfo field : entity.key) {
+				if (!firstField) {
+					createSql.append(", ");
+				} else {
+					firstField = false;
+				}
+				createSql.append(field.fieldName);
+			}
+			createSql.append(")");
+
+			// Close the table
+			createSql.append(")");
+
+			Log.d(TAG, "Creating: " + createSql.toString());
+			db.execSQL(createSql.toString());
+
+			// Now process any remaining children
+			for (EntityInfo child : children) {
+				buildTables(db, child);
+			}
+
+			// Now fill in any enumeration values
+			if (entity.enumValues != null) {
+				ContentValues values = new ContentValues();
+				for (Integer ordinal : entity.enumValues.keySet()) {
+					String value = entity.enumValues.get(ordinal);
+					values.clear();
+					values.put("_id", ordinal);
+					values.put("_value", value);
+					db.insert(escapeName(entity), "_id", values);
+				}
+			}
+		}
 	}
 
 	public VdbInitializer buildInitializer() {
@@ -72,10 +159,10 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 	}
 
 	@Override
-    public boolean onCreate() {
+	public boolean onCreate() {
 		vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(name_);
-        return true;
-    }
+		return true;
+	}
 
 	public GenericContentProvider(String name, Metadata metadata)
 	{
@@ -118,70 +205,74 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 		Log.d(TAG, "Getting entity: " + result.entityName);
 		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
-		Log.d(TAG, "Got info: " + entityInfo);
+		if (entityInfo == null) {
+			throw new RuntimeException("Unable to find entity for: " + result.entityName);
+		}
+		Log.d(TAG, "Got info: " + entityInfo.name());
+		Log.d(TAG, "Getting checkout for: " + uri);
+		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
+
+		ContentValues values;
+		if (userValues != null) {
+			values = new ContentValues(userValues);
+		} else {
+			values = new ContentValues();
+		}
+
+		// Propogate the change to the preInsertHook if there is one
+		ContentChangeHandler handler = ContentChangeHandler.getHandler(entityInfo.name());
+		if (handler != null) {
+			handler.preInsertHook(values);
+		}
+
+		SQLiteDatabase db;
+		try {
+			db = vdbBranch.getReadWriteDatabase();
+		} catch (IOException e) {
+			throw new RuntimeException("getReadWriteDatabase failed", e);
+		}
+
+		try {
+			Log.d(TAG, "Inserting: " + entityInfo.name() + " : " + entityInfo.key.get(0).fieldName + ":" + values.getAsString(entityInfo.key.get(0).fieldName) + " : " + values.size());
+			long rowId = db.insert(escapeName(entityInfo), entityInfo.key.get(0).fieldName, values);
+			if (rowId > 0) {
+				Uri noteUri = ContentUris.withAppendedId(uri, rowId);
+				getContext().getContentResolver().notifyChange(noteUri, null);
+				return noteUri;
+			}
+
+			throw new SQLException("Failed to insert row into " + uri);
+		} finally {
+			vdbBranch.releaseDatabase();
+		}
+
+	}
+
+	@Override
+	public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
+			String sortOrder)
+	{
+		// Validate the requested uri
+		final UriMatch result = EntityUriMatcher.getMatch(uri);
+		Log.d(TAG, "Query for: " + result.entityName + " " + getClass().getCanonicalName());
+		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
 		if (entityInfo == null) {
 			throw new RuntimeException("Unable to find entity for: " + result.entityName);
 		}
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
-        ContentValues values;
-        if (userValues != null) {
-            values = new ContentValues(userValues);
-        } else {
-            values = new ContentValues();
-        }
+		SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
 
-        // Propogate the change to the preInsertHook if there is one
-        ContentChangeHandler handler = ContentChangeHandler.getHandler(entityInfo.name());
-        if (handler != null) {
-        	handler.preInsertHook(values);
-        }
-
-        SQLiteDatabase db;
-        try {
-        	db = vdbBranch.getReadWriteDatabase();
-        } catch (IOException e) {
-        	throw new RuntimeException("getReadWriteDatabase failed", e);
-        }
-
-        try {
-        	Log.d(TAG, "Inserting: " + entityInfo.name() + " : " + entityInfo.idField.fieldName + ":" + values.getAsString(entityInfo.idField.fieldName) + " : " + values.size());
-        	long rowId = db.insert(escapeName(entityInfo.name()), entityInfo.idField.fieldName, values);
-        	if (rowId > 0) {
-        		Uri noteUri = ContentUris.withAppendedId(uri, rowId);
-        		getContext().getContentResolver().notifyChange(noteUri, null);
-        		return noteUri;
-        	}
-
-        	throw new SQLException("Failed to insert row into " + uri);
-        } finally {
-        	vdbBranch.releaseDatabase();
-        }
-
-	}
-
-	@Override
-    public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
-            String sortOrder)
-	{
-        // Validate the requested uri
-		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		Log.d(TAG, "Query for: " + result.entityName);
-		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
-		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
-
-        SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
-
-        if (result.entityIdentifier != null) {
-			qb.setTables(escapeName(entityInfo.name()));
+		if (result.entityIdentifier != null) {
+			qb.setTables(escapeName(entityInfo));
 			// qb.setProjectionMap(sNotesProjectionMap);
-			qb.appendWhere(entityInfo.idField.fieldName + "=" + result.entityIdentifier);
-        } else {
-        	qb.setTables(escapeName(entityInfo.name()));
-        }
+			qb.appendWhere(entityInfo.key.get(0).fieldName + "=" + result.entityIdentifier);
+		} else {
+			qb.setTables(escapeName(entityInfo));
+		}
 
-        // Get the database and run the query
-        SQLiteDatabase db;
+		// Get the database and run the query
+		SQLiteDatabase db;
 		try {
 			db = vdbBranch.getReadOnlyDatabase();
 		} catch (IOException e) {
@@ -194,9 +285,9 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 			Log.d(TAG, "Querying with: " + qb.buildQuery(projection, selection, selectionArgs, null, null, sortOrder, null));
 			Cursor c = qb.query(db, projection, selection, selectionArgs, null, null, sortOrder);
 
-	        // Tell the cursor what uri to watch, so it knows when its source data changes
-	        c.setNotificationUri(getContext().getContentResolver(), uri);
-	        return c;
+			// Tell the cursor what uri to watch, so it knows when its source data changes
+			c.setNotificationUri(getContext().getContentResolver(), uri);
+			return c;
 		} finally {
 			vdbBranch.releaseDatabase();
 		}
@@ -205,28 +296,28 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 	@Override
 	public int update(Uri uri, ContentValues values, String where, String[] whereArgs)
 	{
-        // Validate the requested uri
+		// Validate the requested uri
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
 		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
-        SQLiteDatabase db;
+		SQLiteDatabase db;
 		try {
 			db = vdbBranch.getReadWriteDatabase();
 		} catch (IOException e) {
 			throw new RuntimeException("getReadWriteDatabase failed", e);
 		}
 
-        int count = 0;
+		int count = 0;
 		try {
-	        if (result.entityIdentifier != null) {
-	        	Log.d(TAG, "Updating: " + entityInfo.name() + " : " + values);
-	            count = db.update(escapeName(entityInfo.name()), values,
-	            		entityInfo.idField.fieldName + "=" + result.entityIdentifier
-	                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
-	        } else {
-	        	count = db.update(escapeName(entityInfo.name()), values, where, whereArgs);
-	        }
+			if (result.entityIdentifier != null) {
+				Log.d(TAG, "Updating: " + entityInfo.name() + " : " + values);
+				count = db.update(escapeName(entityInfo), values,
+						entityInfo.key.get(0).fieldName + "=" + result.entityIdentifier
+						+ (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
+			} else {
+				count = db.update(escapeName(entityInfo), values, where, whereArgs);
+			}
 		} finally {
 			vdbBranch.releaseDatabase();
 		}
@@ -238,22 +329,25 @@ public abstract class GenericContentProvider extends ContentProvider implements 
         } catch(IOException e) {
         	Log.v(GenericContentProvider.class.getSimpleName(), e.toString());
         }
-        */
+		 */
 
-        getContext().getContentResolver().notifyChange(uri, null);
-        return count;
+		getContext().getContentResolver().notifyChange(uri, null);
+		return count;
 
 	}
 
 	@Override
-    public int delete(Uri uri, String where, String[] whereArgs)
+	public int delete(Uri uri, String where, String[] whereArgs)
 	{
-        // Validate the requested uri
+		// Validate the requested uri
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
 		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
+		if (entityInfo == null) {
+			throw new RuntimeException("Unable to find entity for: " + result.entityName);
+		}
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
-        SQLiteDatabase db;
+		SQLiteDatabase db;
 		try {
 			db = vdbBranch.getReadWriteDatabase();
 		} catch (IOException e) {
@@ -261,19 +355,19 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 
 		try {
-	        int count;
-	        if (result.entityIdentifier != null) {
-	        	Log.d(TAG, "Deleting: " + entityInfo.name());
+			int count;
+			if (result.entityIdentifier != null) {
+				Log.d(TAG, "Deleting: " + entityInfo.name());
 
-	            count = db.delete(escapeName(entityInfo.name()),
-	            		entityInfo.idField.fieldName + "=" + result.entityIdentifier
-	                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
-	        } else {
-	        	count = db.delete(escapeName(entityInfo.name()), where, whereArgs);
-	        }
+				count = db.delete(escapeName(entityInfo),
+						entityInfo.key.get(0).fieldName + "=" + result.entityIdentifier
+						+ (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
+			} else {
+				count = db.delete(escapeName(entityInfo), where, whereArgs);
+			}
 
-	        getContext().getContentResolver().notifyChange(uri, null);
-	        return count;
+			getContext().getContentResolver().notifyChange(uri, null);
+			return count;
 		} finally {
 			vdbBranch.releaseDatabase();
 		}

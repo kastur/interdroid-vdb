@@ -36,6 +36,7 @@ public class VdbMainContentProvider extends ContentProvider {
 		public RepositoryInfo(RepositoryConf conf)
 		{
 			try {
+				Log.d(TAG, "Constructing Content Provider: " + conf.contentProvider_);
 				provider_ = (ContentProvider) Class.forName(conf.contentProvider_).newInstance();
 				initializer_ = ((VdbInitializerFactory)provider_).buildInitializer();
 				name_ = conf.name_;

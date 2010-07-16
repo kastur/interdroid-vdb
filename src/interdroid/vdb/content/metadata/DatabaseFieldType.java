@@ -34,9 +34,12 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 package interdroid.vdb.content.metadata;
 
-public enum DatabaseFieldTypes {
+public enum DatabaseFieldType {
 	INTEGER,
-	REAL,
+	REAL_NUMBER,
 	TEXT,
-	BLOB
+	BLOB,
+	ONE_TO_MANY_INT,
+	ONE_TO_MANY_STRING,
+	ONE_TO_ONE
 }
