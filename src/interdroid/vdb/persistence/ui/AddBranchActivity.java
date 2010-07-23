@@ -12,7 +12,7 @@ import java.io.IOException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Repository;
 
-import com.example.android.notepad.R;
+import interdroid.vdb.R;
 
 import android.app.Activity;
 import android.content.Intent;

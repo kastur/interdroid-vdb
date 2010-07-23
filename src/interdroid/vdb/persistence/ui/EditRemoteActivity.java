@@ -27,7 +27,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.AdapterView.OnItemSelectedListener;
 
-import com.example.android.notepad.R;
+import interdroid.vdb.R;
 
 public class EditRemoteActivity extends Activity implements OnClickListener {
 	public static final String ACTION_ADD_REMOTE = "interdroid.vdb.action.ADD_REMOTE";

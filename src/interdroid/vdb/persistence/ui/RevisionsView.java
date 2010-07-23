@@ -10,7 +10,7 @@ import java.util.Vector;
 
 import org.eclipse.jgit.revwalk.RevCommit;
 
-import com.example.android.notepad.R;
+import interdroid.vdb.R;
 
 import android.content.Context;
 import android.net.Uri;

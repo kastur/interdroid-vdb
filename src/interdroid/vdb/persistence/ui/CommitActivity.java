@@ -10,7 +10,7 @@ import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 import java.io.IOException;
 
 
-import com.example.android.notepad.R;
+import interdroid.vdb.R;
 
 import android.app.Activity;
 import android.content.Intent;
