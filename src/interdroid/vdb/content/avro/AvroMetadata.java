@@ -2,6 +2,7 @@ package interdroid.vdb.content.avro;
 
 
 import org.apache.avro.Schema;
+import org.apache.avro.Schema.Type;
 
 import interdroid.vdb.content.metadata.Metadata;
 
@@ -24,6 +25,9 @@ public class AvroMetadata extends Metadata {
 	}
 
 	private void parseSchema() {
+		if (schema_.getType() != Type.RECORD){
+			throw new RuntimeException("Root entity must be a record.");
+		}
 		new AvroEntityInfo(schema_, this);
 	}
 

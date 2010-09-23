@@ -2,6 +2,10 @@ package interdroid.vdb.content;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Map.Entry;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.content.metadata.DatabaseFieldType;
@@ -24,23 +28,32 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Log;
+
+
 
 public abstract class GenericContentProvider extends ContentProvider implements VdbInitializerFactory {
-	private static final String TAG = "VDB";
+	private static final Logger logger = LoggerFactory.getLogger(GenericContentProvider.class);
+
+	public static final String SEPARATOR = "_";
+	public static final String PARENT_COLUMN_PREFIX = SEPARATOR + "parent";
+
 	protected final Metadata metadata_;
 	protected final String name_;
 	protected VdbRepository vdbRepo_;
 
 	// TODO: (nick) Support for multiple key tables?
 
-	private String escapeName(EntityInfo entity) {
+	private String escapeName(EntityInfo info) {
+		return DatabaseUtils.sqlEscapeString(escapeName(name_, info.namespace(), info.name()));
+	}
+
+	public static String escapeName(String defaultNamespace, String namespace, String name) {
 		// Don't include the namespace for entities that match our name for simplicity
-		if (name_.equals(entity.namespace())) {
-			return DatabaseUtils.sqlEscapeString(entity.name().replace('.', '_'));
+		if (defaultNamespace.equals(namespace)) {
+			return name.replace('.', '_');
 		} else {
 			// But entities in other namespaces we use the full namespace. This shouldn't happen often.
-			return DatabaseUtils.sqlEscapeString(entity.namespace().replace('.', '_') + "_" + entity.name().replace('.', '_'));
+			return namespace.replace('.', '_') + "_" + name.replace('.', '_');
 		}
 	}
 
@@ -48,7 +61,8 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		@Override
 		public void onCreate(SQLiteDatabase db)
 		{
-			Log.d(TAG, "Initializing database for: " + name_);
+			if (logger.isDebugEnabled())
+				logger.debug("Initializing database for: " + name_);
 			for (EntityInfo entity : metadata_.getEntities()) {
 				// Only handle root entities.
 				// Children get recursed so foreign key constraints all point up
@@ -61,8 +75,8 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		private void buildTables(SQLiteDatabase db, EntityInfo entity) {
 			boolean firstField = true;
 			ArrayList<EntityInfo>children = new ArrayList<EntityInfo>();
-
-			Log.d(TAG, "Creating table for: " + entity.namespace() + " : " + entity.name() + ":" + escapeName(entity));
+			if (logger.isDebugEnabled())
+				logger.debug("Creating table for: " + entity.namespace() + " : " + entity.name() + ":" + escapeName(entity));
 			db.execSQL("DROP TABLE IF EXISTS " + escapeName(entity));
 
 			StringBuilder createSql = new StringBuilder("CREATE TABLE ");
@@ -132,7 +146,8 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 			// Close the table
 			createSql.append(")");
 
-			Log.d(TAG, "Creating: " + createSql.toString());
+			if (logger.isDebugEnabled())
+				logger.debug("Creating: " + createSql.toString());
 			db.execSQL(createSql.toString());
 
 			// Now process any remaining children
@@ -160,7 +175,12 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 
 	@Override
 	public boolean onCreate() {
+		if (logger.isDebugEnabled())
+			logger.debug("onCreate for: " + name_);
 		vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(name_);
+		if (vdbRepo_ == null) {
+			throw new RuntimeException("Unable to get repository instance with name: " + name_);
+		}
 		return true;
 	}
 
@@ -173,13 +193,19 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 	@Override
 	public String getType(Uri uri)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("Getting type of: " + uri);
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		final EntityInfo info = metadata_.getEntity(result.entityName);
-		return result.entityIdentifier != null ? info.itemContentType()
-				: info.contentType();
+		final EntityInfo info = metadata_.getEntity(result);
+		if (logger.isDebugEnabled())
+			logger.debug("Got entity: " + info);
+		return info != null ? info.itemContentType()
+				: null;
 	}
 
 	private VdbCheckout getCheckoutFor(Uri uri, UriMatch result) {
+		if (logger.isDebugEnabled())
+			logger.debug("Getting checkout for: " + uri);
 		try {
 			switch(result.type) {
 			case LOCAL_BRANCH:
@@ -199,22 +225,27 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 	@Override
 	public Uri insert(Uri uri, ContentValues userValues)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("Inserting into: " + uri);
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
 		if (result.entityIdentifier != null) { /* don't accept ID queries */
 			throw new IllegalArgumentException("Invalid item URI " + uri);
 		}
-		Log.d(TAG, "Getting entity: " + result.entityName);
-		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
+		if (logger.isDebugEnabled())
+			logger.debug("Getting entity: " + result.entityName);
+		final EntityInfo entityInfo = metadata_.getEntity(result);
 		if (entityInfo == null) {
 			throw new RuntimeException("Unable to find entity for: " + result.entityName);
 		}
-		Log.d(TAG, "Got info: " + entityInfo.name());
-		Log.d(TAG, "Getting checkout for: " + uri);
+		if (logger.isDebugEnabled()) {
+			logger.debug("Got info: " + entityInfo.name());
+			logger.debug("Getting checkout for: " + uri);
+		}
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
 		ContentValues values;
 		if (userValues != null) {
-			values = new ContentValues(userValues);
+			values = sanitize(userValues);
 		} else {
 			values = new ContentValues();
 		}
@@ -233,7 +264,14 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 
 		try {
-			Log.d(TAG, "Inserting: " + entityInfo.name() + " : " + entityInfo.key.get(0).fieldName + ":" + values.getAsString(entityInfo.key.get(0).fieldName) + " : " + values.size());
+			if (logger.isDebugEnabled())
+				logger.debug("Inserting: " + entityInfo.name() + " : " + entityInfo.key.get(0).fieldName + ":" + values.getAsString(entityInfo.key.get(0).fieldName) + " : " + values.size());
+			// Do we need to include the parent identifier?
+			if (entityInfo.parentEntity != null) {
+				if (logger.isDebugEnabled())
+					logger.debug("Adding parent id: " + entityInfo.parentEntity.key.get(0).fieldName + ":" + result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
+				values.put(PARENT_COLUMN_PREFIX + entityInfo.parentEntity.key.get(0).fieldName, result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
+			}
 			long rowId = db.insert(escapeName(entityInfo), entityInfo.key.get(0).fieldName, values);
 			if (rowId > 0) {
 				Uri noteUri = ContentUris.withAppendedId(uri, rowId);
@@ -252,10 +290,13 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 	public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
 			String sortOrder)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("Querying for: " + uri);
 		// Validate the requested uri
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		Log.d(TAG, "Query for: " + result.entityName + " " + getClass().getCanonicalName());
-		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
+		if (logger.isDebugEnabled())
+			logger.debug("Query for: " + result.entityName + " " + getClass().getCanonicalName());
+		final EntityInfo entityInfo = metadata_.getEntity(result);
 		if (entityInfo == null) {
 			throw new RuntimeException("Unable to find entity for: " + result.entityName);
 		}
@@ -271,6 +312,11 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 			qb.setTables(escapeName(entityInfo));
 		}
 
+		// Append ID of parent if required
+		if (result.parentEntityIdentifiers != null) {
+			qb.appendWhere(PARENT_COLUMN_PREFIX  + entityInfo.parentEntity.key.get(0).fieldName + "=" + result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
+		}
+
 		// Get the database and run the query
 		SQLiteDatabase db;
 		try {
@@ -282,7 +328,8 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		// TODO(emilian): default sort order
 
 		try {
-			Log.d(TAG, "Querying with: " + qb.buildQuery(projection, selection, selectionArgs, null, null, sortOrder, null));
+			if (logger.isDebugEnabled())
+				logger.debug("Querying with: " + qb.buildQuery(projection, selection, selectionArgs, null, null, sortOrder, null));
 			Cursor c = qb.query(db, projection, selection, selectionArgs, null, null, sortOrder);
 
 			// Tell the cursor what uri to watch, so it knows when its source data changes
@@ -296,9 +343,16 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 	@Override
 	public int update(Uri uri, ContentValues values, String where, String[] whereArgs)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("Updating: " + uri);
 		// Validate the requested uri
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
+		final EntityInfo entityInfo = metadata_.getEntity(result);
+
+		if (entityInfo == null) {
+			throw new RuntimeException("Unable to find entity for: " + uri);
+		}
+
 		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
 		SQLiteDatabase db;
@@ -310,10 +364,16 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 
 		int count = 0;
 		try {
+			values = sanitize(values);
 			if (result.entityIdentifier != null) {
-				Log.d(TAG, "Updating: " + entityInfo.name() + " : " + values);
+				if (logger.isDebugEnabled()) {
+					logger.debug("Updating: " + escapeName(entityInfo) + " : " + values);
+					logger.debug("Where: " + entityInfo.key.get(0).fieldName + "=" + result.entityIdentifier
+						+ (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""));
+					logger.debug("Where args: " + whereArgs);
+				}
 				count = db.update(escapeName(entityInfo), values,
-						entityInfo.key.get(0).fieldName + "=" + result.entityIdentifier
+						"'"+ entityInfo.key.get(0).fieldName + "'=" + result.entityIdentifier
 						+ (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
 			} else {
 				count = db.update(escapeName(entityInfo), values, where, whereArgs);
@@ -336,12 +396,46 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 
 	}
 
+	// This sucks. Android does not quote value identifiers properly.
+	private ContentValues sanitize(ContentValues values) {
+		ContentValues cleanValues = new ContentValues();
+		for (Entry<String, Object> val : values.valueSet()) {
+			Object value = val.getValue();
+			String cleanName = val.getKey().startsWith("\"") ? val.getKey() : "\"" + val.getKey() + "\"";
+			// This really sucks. There is no generic put an object....
+			if (value == null) {
+				cleanValues.putNull(cleanName);
+			} else if (value instanceof Boolean) {
+				cleanValues.put(cleanName, (Boolean)value);
+			} else if (value instanceof Byte) {
+				cleanValues.put(cleanName, (Byte)value);
+			} else if (value instanceof byte[] ) {
+				cleanValues.put(cleanName, (byte[])value);
+			} else if (value instanceof Double ) {
+				cleanValues.put(cleanName, (Double)value);
+			} else if (value instanceof Float ) {
+				cleanValues.put(cleanName, (Float)value);
+			} else if (value instanceof Integer ) {
+				cleanValues.put(cleanName, (Integer)value);
+			} else if (value instanceof Short ) {
+				cleanValues.put(cleanName, (Short)value);
+			} else if (value instanceof String ) {
+				cleanValues.put(cleanName, (String)value);
+			} else {
+				throw new RuntimeException("Don't know how to add value of type: " + value.getClass().getCanonicalName());
+			}
+		}
+		return cleanValues;
+	}
+
 	@Override
 	public int delete(Uri uri, String where, String[] whereArgs)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("Delete Uri: " + uri);
 		// Validate the requested uri
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		final EntityInfo entityInfo = metadata_.getEntity(result.entityName);
+		final EntityInfo entityInfo = metadata_.getEntity(result);
 		if (entityInfo == null) {
 			throw new RuntimeException("Unable to find entity for: " + result.entityName);
 		}
@@ -357,7 +451,8 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		try {
 			int count;
 			if (result.entityIdentifier != null) {
-				Log.d(TAG, "Deleting: " + entityInfo.name());
+				if (logger.isDebugEnabled())
+					logger.debug("Deleting: " + entityInfo.name());
 
 				count = db.delete(escapeName(entityInfo),
 						entityInfo.key.get(0).fieldName + "=" + result.entityIdentifier

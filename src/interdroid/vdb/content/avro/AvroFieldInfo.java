@@ -1,10 +1,7 @@
 package interdroid.vdb.content.avro;
 
-import java.util.List;
-
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
-import org.apache.avro.Schema.Type;
 
 import interdroid.vdb.content.metadata.DatabaseFieldType;
 import interdroid.vdb.content.metadata.FieldInfo;
@@ -14,11 +11,11 @@ public class AvroFieldInfo extends FieldInfo {
 
 	public Schema schema_;
 
-	public AvroFieldInfo(Schema.Field field) {
+	public AvroFieldInfo(Field field) {
 		this(field, false);
 	}
 
-	protected AvroFieldInfo(Schema.Field field, boolean isKey) {
+	protected AvroFieldInfo(Field field, boolean isKey) {
 		super(field.name(), getFieldType(field.schema()), isKey);
 		schema_ = field.schema();
 	}
@@ -32,6 +29,7 @@ public class AvroFieldInfo extends FieldInfo {
 		switch (schema.getType()) {
 		case BYTES:
 		case FIXED:
+			// TODO: (nick) These should probably be handled using external streams
 			return DatabaseFieldType.BLOB;
 		case DOUBLE:
 		case FLOAT:
@@ -50,22 +48,10 @@ public class AvroFieldInfo extends FieldInfo {
 		case MAP:
 			return DatabaseFieldType.ONE_TO_MANY_STRING;
 		case UNION:
-			// We allow unions of any single of the above types and NULL.
-			List<Field>fields = schema.getFields();
-			if (fields.size() == 2) {
-				boolean zeroIsNull = fields.get(0).schema().getType() == Type.NULL;
-				boolean oneIsNull = fields.get(1).schema().getType() == Type.NULL;
-				if ((zeroIsNull || oneIsNull) && (!zeroIsNull && !oneIsNull)) {
-					if (zeroIsNull) {
-						return getFieldType(fields.get(0).schema());
-					} else {
-						return getFieldType(fields.get(1).schema());
-					}
-				}
-			}
-			// Intentional Fall Through
-		default:
+			return DatabaseFieldType.BLOB;
 		case NULL:
+			return DatabaseFieldType.INTEGER;
+		default:
 			throw new RuntimeException("Unsupported Avro Field Type: " + schema.toString());
 		}
 	}

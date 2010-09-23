@@ -11,22 +11,24 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
-import android.util.Log;
 
 public class VdbMainContentProvider extends ContentProvider {
+	private static final Logger logger = LoggerFactory.getLogger(VdbMainContentProvider.class);
+
 	public static final String AUTHORITY = VdbMainContentProvider.class.getName().toLowerCase();
 	public static final String BASE_TYPE = "vnd." + VdbMainContentProvider.class.getPackage().getName().toLowerCase();
 
 	private VdbConfig config_;
-	private static final Map<String,RepositoryInfo> repoInfos_
+	private final Map<String,RepositoryInfo> repoInfos_
 			= new HashMap<String,RepositoryInfo>();
-
-	private static final String TAG = "VdbMCP";
 
 	private static class RepositoryInfo {
 		public final ContentProvider provider_;
@@ -36,7 +38,8 @@ public class VdbMainContentProvider extends ContentProvider {
 		public RepositoryInfo(RepositoryConf conf)
 		{
 			try {
-				Log.d(TAG, "Constructing Content Provider: " + conf.contentProvider_);
+				if (logger.isDebugEnabled())
+					logger.debug("Constructing Content Provider: " + conf.contentProvider_);
 				provider_ = (ContentProvider) Class.forName(conf.contentProvider_).newInstance();
 				initializer_ = ((VdbInitializerFactory)provider_).buildInitializer();
 				name_ = conf.name_;
@@ -53,26 +56,29 @@ public class VdbMainContentProvider extends ContentProvider {
 	@Override
 	public boolean onCreate()
 	{
-		config_ = new VdbConfig(getContext());
-		// Initialize all the child content providers, one for each repository.
-		for (RepositoryConf repoConf : config_.getRepositories()) {
-			RepositoryInfo repoInfo = new RepositoryInfo(repoConf);
-			if (repoInfos_.containsKey(repoInfo.name_)) {
-				throw new RuntimeException("Invalid configuration, duplicate repository name "
-						+ repoInfo.name_);
-			}
-			try {
-				Log.d(TAG, "Adding repository: " + repoInfo.name_);
-				VdbRepositoryRegistry.getInstance().addRepository(getContext(),
-						repoInfo.name_, repoInfo.initializer_);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-			repoInfos_.put(repoInfo.name_, repoInfo);
+		if (config_ == null) {
+			config_ = new VdbConfig(getContext());
+			// Initialize all the child content providers, one for each repository.
+			for (RepositoryConf repoConf : config_.getRepositories()) {
+				RepositoryInfo repoInfo = new RepositoryInfo(repoConf);
+				if (repoInfos_.containsKey(repoInfo.name_)) {
+					throw new RuntimeException("Invalid configuration, duplicate repository name "
+							+ repoInfo.name_);
+				}
+				try {
+					if (logger.isDebugEnabled())
+						logger.debug("Adding repository: " + repoInfo.name_);
+					VdbRepositoryRegistry.getInstance().addRepository(getContext(),
+							repoInfo.name_, repoInfo.initializer_);
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+				repoInfos_.put(repoInfo.name_, repoInfo);
 
-			// Do this at the end, since onCreate will be called in the child
-			// We want everything to be registered prior to this happening.
-			repoInfo.provider_.attachInfo(getContext(), null);
+				// Do this at the end, since onCreate will be called in the child
+				// We want everything to be registered prior to this happening.
+				repoInfo.provider_.attachInfo(getContext(), null);
+			}
 		}
 		return true;
 	}
@@ -90,6 +96,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	@Override
 	public int delete(Uri uri, String selection, String[] selectionArgs)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("delete: " + uri);
 		UriMatch match = EntityUriMatcher.getMatch(uri);
 		RepositoryInfo info = repoInfos_.get(match.repositoryName);
 		validateUri(uri, info, match);
@@ -99,6 +107,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	@Override
 	public String getType(Uri uri)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("getType : " + uri);
 		UriMatch match = EntityUriMatcher.getMatch(uri);
 		RepositoryInfo info = repoInfos_.get(match.repositoryName);
 		if (info == null) {
@@ -124,6 +134,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	@Override
 	public Uri insert(Uri uri, ContentValues values)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("insert: " + uri);
 		UriMatch match = EntityUriMatcher.getMatch(uri);
 		RepositoryInfo info = repoInfos_.get(match.repositoryName);
 		validateUri(uri, info, match);
@@ -134,6 +146,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	public Cursor query(Uri uri, String[] projection, String selection,
 			String[] selectionArgs, String sortOrder)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("query: " + uri);
 		UriMatch match = EntityUriMatcher.getMatch(uri);
 		RepositoryInfo info = repoInfos_.get(match.repositoryName);
 		validateUri(uri, info, match);
@@ -144,6 +158,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	public int update(Uri uri, ContentValues values, String selection,
 			String[] selectionArgs)
 	{
+		if (logger.isDebugEnabled())
+			logger.debug("update: " + uri);
 		UriMatch match = EntityUriMatcher.getMatch(uri);
 		RepositoryInfo info = repoInfos_.get(match.repositoryName);
 		validateUri(uri, info, match);

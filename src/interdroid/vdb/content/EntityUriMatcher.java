@@ -1,10 +1,11 @@
 package interdroid.vdb.content;
 
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ListIterator;
 
 import android.net.Uri;
-import android.util.Log;
 
 public class EntityUriMatcher {
 	public static enum MatchType {
@@ -31,7 +32,7 @@ public class EntityUriMatcher {
 		}
 	}
 
-	private static final String TAG = "VDB";
+	private static final String TAG = "EntUriMatch";
 
 	private EntityUriMatcher() {}
 
@@ -58,16 +59,28 @@ public class EntityUriMatcher {
 		public String reference;
 
 		/**
-		 * Name of entity from the uri part right after reference.
+		 * Name of the last entity in the path.
 		 * Can be null if it was not present.
 		 */
 		public String entityName;
 
 		/**
-		 * Identifier present as the last path segment after entityName.
+		 * Identifier of the last entity in the path.
 		 * Can be null if it was not present.
 		 */
 		public String entityIdentifier;
+
+		/**
+		 * Name of any parent entities.
+		 * Can be null if none were present.
+		 */
+		public List<String> parentEntityNames;
+
+		/**
+		 * Parent entity identifiers which match the names.
+		 * Can be null if none were present.
+		 */
+		public List<String> parentEntityIdentifiers;
 
 		/**
 		 * Returns whether this URI points to a vdb checkout.
@@ -163,19 +176,18 @@ public class EntityUriMatcher {
 	 * content://authority/repository_name/metadata/entity/id
 	 *
 	 * content://authority/repository_name/branches/branch_name/entity
-	 * content://authority/repository_name/branches/branch_name/entity/id
+	 * content://authority/repository_name/branches/branch_name/[entity/id]+[/entity]
 	 * content://authority/repository_name/remote/remote_name
 	 * content://authority/repository_name/remote-branches/remote_name/entity
-	 * content://authority/repository_name/remote-branches/remote_name/entity/id
+	 * content://authority/repository_name/remote-branches/remote_name/[entity/id]+[/entity]?
 	 * content://authority/repository_name/commits/sha1/entity
-	 * content://authority/repository_name/commits/sha1/entity/id
+	 * content://authority/repository_name/commits/sha1/[entity/id]+[/entity]?
 	 *
 	 * @param uri
 	 * @return
 	 */
 	public static UriMatch getMatch(Uri uri) {
 		final UriMatch match = new UriMatch();
-		Log.d(TAG, "Matching URI: " + uri);
 		if (!VdbMainContentProvider.AUTHORITY.equals(uri.getAuthority())) {
 			throw new IllegalArgumentException("Unknown URI " + uri);
 		}
@@ -218,9 +230,31 @@ public class EntityUriMatcher {
 			break;
 
 		}
-		match.entityName = pathIterator.next();
-		if (pathIterator.hasNext()) {
-			match.entityIdentifier = pathIterator.next();
+
+		// Now we have to handle the (possibly multiple levels of) entities
+		String lastEntityName = null;
+		String lastEntityId = null;
+		while(pathIterator.hasNext()) {
+			lastEntityName = pathIterator.next();
+			// Do we have an Id for this one?
+			if (pathIterator.hasNext()) {
+				lastEntityId = pathIterator.next();
+			} else {
+				lastEntityId = null;
+			}
+			// Are we done?
+			if (!pathIterator.hasNext()) {
+				match.entityName = lastEntityName;
+				match.entityIdentifier = lastEntityId;
+			} else {
+				// Do we need to init the lists?
+				if (match.parentEntityNames == null) {
+					match.parentEntityNames = new ArrayList<String>();
+					match.parentEntityIdentifiers = new ArrayList<String>();
+				}
+				match.parentEntityNames.add(lastEntityName);
+				match.parentEntityIdentifiers.add(lastEntityId);
+			}
 		}
 
 		return match;

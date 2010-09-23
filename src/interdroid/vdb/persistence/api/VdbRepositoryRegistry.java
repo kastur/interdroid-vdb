@@ -14,11 +14,9 @@ import org.eclipse.jgit.transport.OpenSshConfig.Host;
 import com.jcraft.jsch.Session;
 
 import android.content.Context;
-import android.util.Log;
 
 public class VdbRepositoryRegistry {
 
-	private static final String TAG = "VdbRepoReg";
 	private static VdbRepositoryRegistry singletonInstance__;
 
 	private VdbRepositoryRegistry()
@@ -49,17 +47,19 @@ public class VdbRepositoryRegistry {
 			String repositoryName, VdbInitializer initializer)
 	throws IOException
 	{
-		Log.d(TAG, "Registering repository: " + repositoryName);
+		VdbRepositoryImpl repo;
 		if (repositories_.containsKey(repositoryName)) {
-			throw new IllegalStateException("Repository " + repositoryName
-					+ " was already registered");
+			repo = repositories_.get(repositoryName);
+//			throw new IllegalStateException("Repository " + repositoryName
+//					+ " was already registered");
+		} else {
+			File repoDir = context.getDir("git-" + repositoryName,
+					Context.MODE_WORLD_READABLE | Context.MODE_WORLD_WRITEABLE);
+			// If it does not exist, it will be initialized
+			repo = new VdbRepositoryImpl(repositoryName,
+					repoDir, initializer);
+			repositories_.put(repositoryName, repo);
 		}
-    	File repoDir = context.getDir("git-" + repositoryName,
-    			Context.MODE_WORLD_READABLE | Context.MODE_WORLD_WRITEABLE);
-    	// If it does not exist, it will be initialized
-		VdbRepositoryImpl repo = new VdbRepositoryImpl(repositoryName,
-				repoDir, initializer);
-		repositories_.put(repositoryName, repo);
 		return repo;
 	}
 

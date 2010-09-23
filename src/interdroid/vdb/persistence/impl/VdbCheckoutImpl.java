@@ -27,10 +27,16 @@ import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.GitIndex.Entry;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import android.database.sqlite.SQLiteDatabase;
-import android.util.Log;
+
 
 public class VdbCheckoutImpl implements VdbCheckout {
+	private static final Logger logger = LoggerFactory.getLogger(VdbCheckoutImpl.class);
+
 	private final VdbRepositoryImpl parentRepo_;
 	private final Repository gitRepo_;
 	private final String checkoutName_;
@@ -86,7 +92,8 @@ public class VdbCheckoutImpl implements VdbCheckout {
 			throws IOException, MergeInProgressException
 	{
 		checkDeletedState();
-		Log.v(TAG, "commit on " + checkoutName_);
+		if (logger.isDebugEnabled())
+			logger.debug("commit on " + checkoutName_);
 
 		if (mergeInfo_ != null && !mergeInfo_.resolved_) {
 			throw new MergeInProgressException();
@@ -154,7 +161,8 @@ public class VdbCheckoutImpl implements VdbCheckout {
 			detachMergeDatabases();
 		}
 
-		Log.v(TAG, "Succesfully committed revision "
+		if (logger.isDebugEnabled())
+			logger.debug("Succesfully committed revision "
 				+ commit.getCommitId().toString() + " on branch "
 				+ checkoutName_);
 	}
@@ -163,7 +171,8 @@ public class VdbCheckoutImpl implements VdbCheckout {
 			VdbInitializer initializer)
 	throws IOException
     {
-		Log.d(TAG, "Creating master for: " + parentRepo.getName());
+		if (logger.isDebugEnabled())
+			logger.debug("Creating master for: " + parentRepo.getName());
 		File masterDir = new File(parentRepo.getRepositoryDir(), Constants.MASTER);
 		masterDir.mkdirs();
 
@@ -384,7 +393,8 @@ public class VdbCheckoutImpl implements VdbCheckout {
 	public void delete()
 	{
 		checkDeletedState();
-		Log.v(TAG, "delete called for " + checkoutName_);
+		if (logger.isDebugEnabled())
+			logger.debug("delete called for " + checkoutName_);
 
 		try {
 			if (!accessLock_.writeLock().tryLock(5, TimeUnit.SECONDS)) {

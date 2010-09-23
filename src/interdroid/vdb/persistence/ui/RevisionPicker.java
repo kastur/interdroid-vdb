@@ -9,14 +9,17 @@ import interdroid.vdb.persistence.ui.RevisionsView.OnRevisionClickListener;
 import java.util.List;
 import java.util.Vector;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 
 public class RevisionPicker extends Activity implements OnRevisionClickListener {
+	private static final Logger logger = LoggerFactory.getLogger(RevisionPicker.class);
+
 	public static final String ALLOW_LOCAL_BRANCHES = "ALLOW_LOCAL_BRANCHES";
 	public static final String ALLOW_REMOTE_BRANCHES = "ALLOW_REMOTE_BRANCHES";
 	public static final String ALLOW_COMMITS = "ALLOW_COMMITS";
@@ -33,7 +36,8 @@ public class RevisionPicker extends Activity implements OnRevisionClickListener 
 
         Intent intent = getIntent();
         if (intent.getData() == null) {
-            Log.e(TAG, "Need repository URI, exiting");
+			if (logger.isErrorEnabled())
+				logger.error("Need repository URI, exiting");
             finish();
             return;
         }
@@ -55,7 +59,8 @@ public class RevisionPicker extends Activity implements OnRevisionClickListener 
         }
         List<String> pathSegments = repoUri.getPathSegments();
         if (pathSegments.size() != 1) {
-        	Log.e(TAG, "Bad repository URI, need content://authority/repository_name .");
+			if (logger.isErrorEnabled())
+				logger.error("Bad repository URI, need content://authority/repository_name .");
             finish();
             return;
         }
