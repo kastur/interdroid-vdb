@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+@SuppressWarnings("deprecation")
 public class VdbRepositoryImpl implements VdbRepository {
 	private static final Logger logger = LoggerFactory.getLogger(VdbRepositoryImpl.class)
 	;

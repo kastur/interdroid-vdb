@@ -2,7 +2,6 @@ package interdroid.vdb.content.metadata;
 
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;

@@ -32,8 +32,6 @@ public class EntityUriMatcher {
 		}
 	}
 
-	private static final String TAG = "EntUriMatch";
-
 	private EntityUriMatcher() {}
 
 	/**

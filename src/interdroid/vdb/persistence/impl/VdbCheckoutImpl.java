@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import android.database.sqlite.SQLiteDatabase;
 
 
+@SuppressWarnings("deprecation")
 public class VdbCheckoutImpl implements VdbCheckout {
 	private static final Logger logger = LoggerFactory.getLogger(VdbCheckoutImpl.class);
 
@@ -56,7 +57,6 @@ public class VdbCheckoutImpl implements VdbCheckout {
 	 */
 	private final ReentrantReadWriteLock accessLock_ = new ReentrantReadWriteLock();
 
-	private static final String TAG = "VdbBranch";
 	private static final String BRANCH_REF_PREFIX = Constants.R_HEADS;
     private static final String SQLITEDB = "sqlite.db";
     private static final String MERGEINFO = "MERGE_INFO";
