@@ -7,7 +7,7 @@ import interdroid.vdb.content.GenericContentProvider;
 
 public class ORMGenericContentProvider extends GenericContentProvider {
 
-	public ORMGenericContentProvider(String name, Class<?> schemaClasses) {
-		super(name, new ORMMetadata(schemaClasses));
+	public ORMGenericContentProvider(String namespace, Class<?> schemaClasses) {
+		super(namespace, new ORMMetadata(namespace, schemaClasses));
 	}
 }

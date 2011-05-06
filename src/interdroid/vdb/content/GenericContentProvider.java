@@ -38,13 +38,13 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 	public static final String PARENT_COLUMN_PREFIX = SEPARATOR + "parent";
 
 	protected final Metadata metadata_;
-	protected final String name_;
+	protected final String namespace_;
 	protected VdbRepository vdbRepo_;
 
 	// TODO: (nick) Support for multiple key tables?
 
 	private String escapeName(EntityInfo info) {
-		return DatabaseUtils.sqlEscapeString(escapeName(name_, info.namespace(), info.name()));
+		return DatabaseUtils.sqlEscapeString(escapeName(namespace_, info.namespace(), info.name()));
 	}
 
 	public static String escapeName(String defaultNamespace, String namespace, String name) {
@@ -62,7 +62,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		public void onCreate(SQLiteDatabase db)
 		{
 			if (logger.isDebugEnabled())
-				logger.debug("Initializing database for: " + name_);
+				logger.debug("Initializing database for: " + namespace_);
 			for (EntityInfo entity : metadata_.getEntities()) {
 				// Only handle root entities.
 				// Children get recursed so foreign key constraints all point up
@@ -170,23 +170,25 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 	}
 
 	public VdbInitializer buildInitializer() {
+		logger.debug("Building initializer.");
 		return new DatabaseInitializer();
 	}
 
 	@Override
 	public boolean onCreate() {
 		if (logger.isDebugEnabled())
-			logger.debug("onCreate for: " + name_);
-		vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(name_);
+			logger.debug("onCreate for: " + namespace_);
+		vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(namespace_);
 		if (vdbRepo_ == null) {
-			throw new RuntimeException("Unable to get repository instance with name: " + name_);
+			throw new RuntimeException("Unable to get repository instance for namespace: " + namespace_);
 		}
+		logger.debug("Fetched repository.");
 		return true;
 	}
 
-	public GenericContentProvider(String name, Metadata metadata)
+	public GenericContentProvider(String namespace, Metadata metadata)
 	{
-		name_ = name;
+		namespace_ = namespace;
 		metadata_ = metadata;
 	}
 

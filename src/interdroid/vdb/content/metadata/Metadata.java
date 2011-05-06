@@ -20,6 +20,7 @@ public abstract class Metadata {
 	public final String namespace_;
 
 	protected Metadata(String namespace) {
+		logger.debug("Constructed metadata namespace: " + namespace);
 		namespace_ = namespace;
 		namespaces.put(namespace_, namespace_);
 	}

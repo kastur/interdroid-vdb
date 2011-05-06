@@ -3,6 +3,7 @@ package interdroid.vdb.content;
 import interdroid.vdb.content.EntityUriMatcher.MatchType;
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.content.VdbConfig.RepositoryConf;
+import interdroid.vdb.content.avro.AvroProviderRegistry;
 import interdroid.vdb.persistence.api.VdbInitializer;
 import interdroid.vdb.persistence.api.VdbInitializerFactory;
 import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
@@ -13,7 +14,6 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
@@ -30,10 +30,16 @@ public class VdbMainContentProvider extends ContentProvider {
 	private final Map<String,RepositoryInfo> repoInfos_
 			= new HashMap<String,RepositoryInfo>();
 
-	private static class RepositoryInfo {
+	public static class RepositoryInfo {
 		public final ContentProvider provider_;
 		public final VdbInitializer initializer_;
 		public final String name_;
+
+		public RepositoryInfo(String name, ContentProvider provider) {
+			provider_ = provider;
+			name_ = name;
+			initializer_ = null;
+		}
 
 		public RepositoryInfo(RepositoryConf conf)
 		{
@@ -56,6 +62,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	@Override
 	public boolean onCreate()
 	{
+		// TODO: Lets do some lazy instantiation here please! My GOD!
+
 		if (config_ == null) {
 			config_ = new VdbConfig(getContext());
 			// Initialize all the child content providers, one for each repository.
@@ -65,22 +73,39 @@ public class VdbMainContentProvider extends ContentProvider {
 					throw new RuntimeException("Invalid configuration, duplicate repository name "
 							+ repoInfo.name_);
 				}
-				try {
-					if (logger.isDebugEnabled())
-						logger.debug("Adding repository: " + repoInfo.name_);
-					VdbRepositoryRegistry.getInstance().addRepository(getContext(),
-							repoInfo.name_, repoInfo.initializer_);
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-				repoInfos_.put(repoInfo.name_, repoInfo);
+				initializeRepo(repoInfo);
+			}
 
-				// Do this at the end, since onCreate will be called in the child
-				// We want everything to be registered prior to this happening.
-				repoInfo.provider_.attachInfo(getContext(), null);
+
+			logger.debug("Initializing Avro Repos.");
+			// Now we need to initialize all the Avro ones in the dynamic registry
+			AvroProviderRegistry registry = (AvroProviderRegistry)repoInfos_.get(AvroProviderRegistry.NAMESPACE).provider_;
+			RepositoryInfo[] infos = registry.getAllRepositories();
+			for (int i = 0; i < infos.length; i++) {
+				initializeRepo(infos[i]);
 			}
 		}
+
 		return true;
+	}
+
+	private void initializeRepo(RepositoryInfo repoInfo) {
+		try {
+			if (logger.isDebugEnabled())
+				logger.debug("Initializing repository: " + repoInfo.name_);
+			VdbRepositoryRegistry.getInstance().addRepository(getContext(),
+					repoInfo.name_, repoInfo.initializer_);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		logger.debug("Storing into repoInfos.");
+		repoInfos_.put(repoInfo.name_, repoInfo);
+
+		// Do this at the end, since onCreate will be called in the child
+		// We want everything to be registered prior to this happening.
+		logger.debug("Attaching context to provider.");
+		repoInfo.provider_.attachInfo(getContext(), null);
+		logger.debug("Initialized Repository: " + repoInfo.name_);
 	}
 
 	private void validateUri(Uri uri, RepositoryInfo info, UriMatch match)

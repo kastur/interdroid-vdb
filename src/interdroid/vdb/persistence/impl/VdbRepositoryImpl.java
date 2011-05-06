@@ -71,6 +71,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 
     private void initializeRepository()
     {
+    	logger.debug("Initializing Repository");
     	try {
 			gitRepo_ = new Repository(null, repoDir_);
 		} catch (IOException e) {

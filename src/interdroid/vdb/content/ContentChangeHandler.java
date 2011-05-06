@@ -20,4 +20,9 @@ public class ContentChangeHandler {
 			ContentChangeHandler contentChangeHandler) {
 		handlers.put(name, contentChangeHandler);
 	}
+
+	public static void register(String namespace, String name,
+			ContentChangeHandler contentChangeHandler) {
+		register(namespace + "." + name, contentChangeHandler);
+	}
 }

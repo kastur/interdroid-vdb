@@ -40,7 +40,7 @@ public class VdbRepositoryRegistry {
 	}
 
 
-	Map<String,VdbRepositoryImpl> repositories_
+	private Map<String,VdbRepositoryImpl> repositories_
 		= new HashMap<String, VdbRepositoryImpl>();
 
 	public synchronized VdbRepository addRepository(Context context,

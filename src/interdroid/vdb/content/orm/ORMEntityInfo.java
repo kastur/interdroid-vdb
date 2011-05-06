@@ -14,7 +14,7 @@ public class ORMEntityInfo extends EntityInfo {
 	}
 
 	public String namespace() {
-		return "";
+		return clazz.getPackage().getName();
 	}
 
 	public String contentType() {
