@@ -1,6 +1,7 @@
 package interdroid.vdb.content.avro;
 
 import interdroid.vdb.content.EntityUriBuilder;
+import interdroid.vdb.content.VdbMainContentProvider;
 import interdroid.vdb.content.VdbMainContentProvider.RepositoryInfo;
 import interdroid.vdb.content.metadata.DatabaseFieldType;
 import interdroid.vdb.content.orm.DbEntity;
@@ -37,7 +38,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		public static final String DEFAULT_SORT_ORDER = "modified DESC";
 
 		public static final Uri CONTENT_URI =
-			Uri.withAppendedPath(EntityUriBuilder.branchUri(AvroProviderRegistry.NAMESPACE, "master"), AvroProviderRegistry.NAME);
+			Uri.withAppendedPath(EntityUriBuilder.branchUri(VdbMainContentProvider.AUTHORITY, AvroProviderRegistry.NAMESPACE, "master"), AvroProviderRegistry.NAME);
 
 		@DbField(isID=true, dbType=DatabaseFieldType.INTEGER)
 		public static final String _ID = "_id";
@@ -57,24 +58,25 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		super(NAMESPACE, RegistryConf.class);
 	}
 
-	public static final Uri URI = Uri.withAppendedPath(EntityUriBuilder.branchUri(NAMESPACE, "master"), NAME);
+	public static final Uri URI = Uri.withAppendedPath(EntityUriBuilder.branchUri(VdbMainContentProvider.AUTHORITY,
+			NAMESPACE, "master"), NAME);
 	private static RepositoryInfo sRegistryInfo;
 
 	public RepositoryInfo[] getAllRepositories() {
 		Cursor c = null;
 		RepositoryInfo[] result = null;
 		try {
-			c = query(URI, new String[]{KEY_NAME, KEY_SCHEMA}, null, null, null);
+			c = query(URI, new String[]{KEY_NAMESPACE, KEY_SCHEMA}, null, null, null);
 			int i = 0;
 			if (c != null) {
 				result = new RepositoryInfo[c.getCount()];
 //				result = new RepositoryInfo[c.getCount() + 1];
 //				result[i++] = getRegistryRepositoryInfo();
-				int nameIndex = c.getColumnIndex(KEY_NAME);
+				int namespaceIndex = c.getColumnIndex(KEY_NAMESPACE);
 				int schemaIndex = c.getColumnIndex(KEY_SCHEMA);
 				while (c.moveToNext()) {
-					result[i++] = new RepositoryInfo(c.getString(nameIndex),
-							new AvroContentProvider(c.getString(schemaIndex)));
+					AvroContentProvider provider = new AvroContentProvider(c.getString(schemaIndex));
+					result[i++] = new RepositoryInfo(c.getString(namespaceIndex), provider, provider.buildInitializer());
 				}
 			}
 		} finally {
@@ -105,8 +107,9 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 				c = context.getContentResolver().query(URI, new String[]{KEY_SCHEMA},
 						KEY_NAME + " = ?", new String[] {repositoryName}, null);
 				if (c != null && c.moveToFirst()) {
-					result = new RepositoryInfo(repositoryName,
-							new AvroContentProvider(c.getString(c.getColumnIndex(KEY_SCHEMA))));
+					int schemaIndex = c.getColumnIndex(KEY_SCHEMA);
+					AvroContentProvider provider = new AvroContentProvider(c.getString(schemaIndex));
+					result = new RepositoryInfo(repositoryName, provider, provider.buildInitializer());
 				}
 			} finally {
 				if (c != null) {
@@ -122,7 +125,8 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 
 	private static synchronized RepositoryInfo getRegistryRepositoryInfo() {
 		if (sRegistryInfo == null) {
-			sRegistryInfo = new RepositoryInfo(NAME, new AvroProviderRegistry());
+			AvroProviderRegistry provider = new AvroProviderRegistry();
+			sRegistryInfo = new RepositoryInfo(NAME, provider, provider.buildInitializer());
 		}
 		return sRegistryInfo;
 	}
@@ -143,6 +147,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 					context.getContentResolver().insert(URI, values);
 				} else {
 					// Do we need to update the schema then?
+					c.moveToFirst();
 					Schema currentSchema = Schema.parse(c.getString(c.getColumnIndex(KEY_SCHEMA)));
 					if (schema != currentSchema) {
 						ContentValues values = new ContentValues();

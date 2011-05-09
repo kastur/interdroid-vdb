@@ -80,6 +80,8 @@ public class EntityUriMatcher {
 		 */
 		public List<String> parentEntityIdentifiers;
 
+		public String authority;
+
 		/**
 		 * Returns whether this URI points to a vdb checkout.
 		 *
@@ -120,6 +122,7 @@ public class EntityUriMatcher {
 		 **/
 		public UriMatch(UriMatch other)
 		{
+			authority = other.authority;
 			repositoryName = other.repositoryName;
 			type = other.type;
 			reference = other.reference;
@@ -133,7 +136,7 @@ public class EntityUriMatcher {
 		public Uri buildUri()
 		{
 			Uri.Builder b = new Uri.Builder().scheme("content")
-					.authority(VdbMainContentProvider.AUTHORITY)
+					.authority(authority)
 					.appendPath(repositoryName);
 			if (type == MatchType.REPOSITORY) {
 				return b.build();
@@ -186,9 +189,9 @@ public class EntityUriMatcher {
 	 */
 	public static UriMatch getMatch(Uri uri) {
 		final UriMatch match = new UriMatch();
-		if (!VdbMainContentProvider.AUTHORITY.equals(uri.getAuthority())) {
-			throw new IllegalArgumentException("Unknown URI " + uri);
-		}
+
+		match.authority = uri.getAuthority();
+
 		ListIterator<String> pathIterator = uri.getPathSegments().listIterator();
 
 		if (!pathIterator.hasNext()) {

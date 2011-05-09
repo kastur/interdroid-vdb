@@ -35,10 +35,10 @@ public class VdbMainContentProvider extends ContentProvider {
 		public final VdbInitializer initializer_;
 		public final String name_;
 
-		public RepositoryInfo(String name, ContentProvider provider) {
+		public RepositoryInfo(String name, ContentProvider provider, VdbInitializer initializer) {
 			provider_ = provider;
 			name_ = name;
-			initializer_ = null;
+			initializer_ = initializer;
 		}
 
 		public RepositoryInfo(RepositoryConf conf)

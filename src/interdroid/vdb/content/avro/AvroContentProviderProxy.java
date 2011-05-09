@@ -6,13 +6,19 @@ import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.content.VdbMainContentProvider;
 
 import org.apache.avro.Schema;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import android.content.ContentProvider;
+import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 
 public class AvroContentProviderProxy extends ContentProvider {
+
+	private static final Logger logger = LoggerFactory.getLogger(AvroContentProviderProxy.class);
 
 	// TODO: Need to proxy content change delete update etc notifications.
 	// TODO: Need to check for installation of vdb-ui and make sure we are all set.
@@ -53,7 +59,12 @@ public class AvroContentProviderProxy extends ContentProvider {
 		if (handler != null) {
 			handler.preInsertHook(values);
 		}
-		return getContext().getContentResolver().insert(remapUri(uri), values);
+		Context context = getContext();
+		ContentResolver resolver = context.getContentResolver();
+		Uri mappedUri = remapUri(uri);
+		logger.debug("Inserting into:" + mappedUri + " values: " + values);
+
+		return resolver.insert(mappedUri, values);
 	}
 
 	@Override
