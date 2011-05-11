@@ -9,6 +9,8 @@ import interdroid.vdb.content.orm.DbField;
 import interdroid.vdb.content.orm.ORMGenericContentProvider;
 
 import org.apache.avro.Schema;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -16,6 +18,7 @@ import android.database.Cursor;
 import android.net.Uri;
 
 public class AvroProviderRegistry extends ORMGenericContentProvider {
+	private static final Logger logger = LoggerFactory.getLogger(AvroProviderRegistry.class);
 
 	public static final String NAME = "schema_registry";
 	public static final String NAMESPACE = "interdroid.vdb.content.avro";
@@ -135,11 +138,13 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		// Have we already registered?
 		Cursor c = null;
 		try {
+			logger.debug("Checking for registration of {}", schema.getName());
 			c = context.getContentResolver().query(URI,
 					new String[] {KEY_SCHEMA},
 					KEY_NAME +" = ?", new String[] {schema.getName()}, null);
 			if (c != null) {
 				if (c.getCount() == 0) {
+					logger.debug("Not already registered.");
 					ContentValues values = new ContentValues();
 					values.put(KEY_SCHEMA, schema.toString());
 					values.put(KEY_NAME, schema.getName());
@@ -147,9 +152,11 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 					context.getContentResolver().insert(URI, values);
 				} else {
 					// Do we need to update the schema then?
+					logger.debug("Checking if we need to update.");
 					c.moveToFirst();
 					Schema currentSchema = Schema.parse(c.getString(c.getColumnIndex(KEY_SCHEMA)));
-					if (schema != currentSchema) {
+					if (! schema.equals(currentSchema)) {
+						// TODO: Migrate the database to the new schema and check it in.
 						ContentValues values = new ContentValues();
 						values.put(KEY_SCHEMA, schema.toString());
 						context.getContentResolver().update(URI,
@@ -157,6 +164,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 					}
 				}
 			} else {
+				logger.error("Unexpected error registering schema");
 				throw new RuntimeException("Unable to query Schema Registry!");
 			}
 		} finally {
@@ -164,6 +172,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 				c.close();
 			}
 		}
+		logger.debug("Schema registration complete.");
 	}
 
 }

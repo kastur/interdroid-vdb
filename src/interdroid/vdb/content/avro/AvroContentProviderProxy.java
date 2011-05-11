@@ -37,9 +37,11 @@ public class AvroContentProviderProxy extends ContentProvider {
 		Uri.Builder builder = new Uri.Builder();
 		builder.scheme(uri.getScheme());
 		builder.authority(VdbMainContentProvider.AUTHORITY);
-		builder.path(uri.getPath());
+		builder.path(uri.getAuthority() + uri.getPath());
 		builder.query(uri.getQuery());
-		return builder.build();
+		Uri built = builder.build();
+		logger.debug("remapped: {} to {}", uri, built);
+		return built;
 	}
 
 	@Override
@@ -70,7 +72,10 @@ public class AvroContentProviderProxy extends ContentProvider {
 	@Override
 	public boolean onCreate() {
 		// Make sure we are registered.
+		logger.debug("onCreate");
+		logger.debug("Registering schema: {}", schema_.getName());
 		AvroProviderRegistry.registerSchema(getContext(), schema_);
+		logger.debug("Schema registered.");
 		return false;
 	}
 

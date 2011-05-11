@@ -5,9 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import android.net.Uri;
 
 public class EntityUriMatcher {
+	private static final Logger logger = LoggerFactory.getLogger(EntityUriMatcher.class);
+
 	public static enum MatchType {
 		REPOSITORY(""),
 		LOCAL_BRANCH("branches"),
@@ -80,6 +85,9 @@ public class EntityUriMatcher {
 		 */
 		public List<String> parentEntityIdentifiers;
 
+		/**
+		 * The authority for this entity URI.
+		 */
 		public String authority;
 
 		/**
@@ -191,13 +199,19 @@ public class EntityUriMatcher {
 		final UriMatch match = new UriMatch();
 
 		match.authority = uri.getAuthority();
+		logger.debug("Match authority: {}", match.authority);
 
 		ListIterator<String> pathIterator = uri.getPathSegments().listIterator();
 
 		if (!pathIterator.hasNext()) {
 			throw new IllegalArgumentException("Unknown URI, no repository. " + uri);
 		}
-		match.repositoryName = pathIterator.next();
+		if (match.authority.equals(VdbMainContentProvider.AUTHORITY)) {
+			match.repositoryName = pathIterator.next();
+		} else {
+			match.repositoryName = match.authority;
+		}
+		logger.debug("Match repository: {}", match.repositoryName);
 
 		if (pathIterator.hasNext()) {
 			match.type = MatchType.fromShortString(pathIterator.next());

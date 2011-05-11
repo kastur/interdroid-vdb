@@ -63,6 +63,7 @@ public class VdbMainContentProvider extends ContentProvider {
 	public boolean onCreate()
 	{
 		// TODO: Lets do some lazy instantiation here please! My GOD!
+		logger.debug("OnCreate called.");
 
 		if (config_ == null) {
 			config_ = new VdbConfig(getContext());
@@ -111,7 +112,7 @@ public class VdbMainContentProvider extends ContentProvider {
 	private void validateUri(Uri uri, RepositoryInfo info, UriMatch match)
 	{
 		if (info == null) {
-			throw new IllegalArgumentException("Bad URI: unregistered repository. " + uri);
+			throw new IllegalArgumentException("Bad URI: unregistered repository: " + match.repositoryName);
 		}
 		if (match.type == MatchType.REPOSITORY) {
 			throw new IllegalArgumentException("Bad URI: only repository was specified. " + uri);
