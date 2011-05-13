@@ -1,121 +1,38 @@
 package interdroid.vdb.content;
 
-import interdroid.vdb.content.EntityUriMatcher.MatchType;
-import interdroid.vdb.content.EntityUriMatcher.UriMatch;
-import interdroid.vdb.content.VdbConfig.RepositoryConf;
-import interdroid.vdb.content.avro.AvroProviderRegistry;
-import interdroid.vdb.persistence.api.VdbInitializer;
-import interdroid.vdb.persistence.api.VdbInitializerFactory;
-import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
-
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.net.Uri;
 
 public class VdbMainContentProvider extends ContentProvider {
 	private static final Logger logger = LoggerFactory.getLogger(VdbMainContentProvider.class);
 
-	public static final String AUTHORITY = VdbMainContentProvider.class.getName().toLowerCase();
-	public static final String BASE_TYPE = "vnd." + VdbMainContentProvider.class.getPackage().getName().toLowerCase();
+	public static final String AUTHORITY = VdbMainContentProvider.class.getPackage().getName().toLowerCase();
 
-	private VdbConfig config_;
-	private final Map<String,RepositoryInfo> repoInfos_
-			= new HashMap<String,RepositoryInfo>();
-
-	public static class RepositoryInfo {
-		public final ContentProvider provider_;
-		public final VdbInitializer initializer_;
-		public final String name_;
-
-		public RepositoryInfo(String name, ContentProvider provider, VdbInitializer initializer) {
-			provider_ = provider;
-			name_ = name;
-			initializer_ = initializer;
-		}
-
-		public RepositoryInfo(RepositoryConf conf)
-		{
-			try {
-				if (logger.isDebugEnabled())
-					logger.debug("Constructing Content Provider: " + conf.contentProvider_);
-				provider_ = (ContentProvider) Class.forName(conf.contentProvider_).newInstance();
-				initializer_ = ((VdbInitializerFactory)provider_).buildInitializer();
-				name_ = conf.name_;
-			} catch (IllegalAccessException e) {
-				throw new RuntimeException(e);
-			} catch (InstantiationException e) {
-				throw new RuntimeException(e);
-			} catch (ClassNotFoundException e) {
-				throw new RuntimeException(e);
-			}
-		}
-	}
+	private VdbProviderRegistry registry_;
 
 	@Override
 	public boolean onCreate()
 	{
-		// TODO: Lets do some lazy instantiation here please! My GOD!
 		logger.debug("OnCreate called.");
-
-		if (config_ == null) {
-			config_ = new VdbConfig(getContext());
-			// Initialize all the child content providers, one for each repository.
-			for (RepositoryConf repoConf : config_.getRepositories()) {
-				RepositoryInfo repoInfo = new RepositoryInfo(repoConf);
-				if (repoInfos_.containsKey(repoInfo.name_)) {
-					throw new RuntimeException("Invalid configuration, duplicate repository name "
-							+ repoInfo.name_);
-				}
-				initializeRepo(repoInfo);
-			}
-
-
-			logger.debug("Initializing Avro Repos.");
-			// Now we need to initialize all the Avro ones in the dynamic registry
-			AvroProviderRegistry registry = (AvroProviderRegistry)repoInfos_.get(AvroProviderRegistry.NAMESPACE).provider_;
-			RepositoryInfo[] infos = registry.getAllRepositories();
-			for (int i = 0; i < infos.length; i++) {
-				initializeRepo(infos[i]);
-			}
-		}
 
 		return true;
 	}
 
-	private void initializeRepo(RepositoryInfo repoInfo) {
+	public void attachInfo(Context context, ProviderInfo info) {
 		try {
-			if (logger.isDebugEnabled())
-				logger.debug("Initializing repository: " + repoInfo.name_);
-			VdbRepositoryRegistry.getInstance().addRepository(getContext(),
-					repoInfo.name_, repoInfo.initializer_);
+			registry_ = new VdbProviderRegistry(context);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-		logger.debug("Storing into repoInfos.");
-		repoInfos_.put(repoInfo.name_, repoInfo);
-
-		// Do this at the end, since onCreate will be called in the child
-		// We want everything to be registered prior to this happening.
-		logger.debug("Attaching context to provider.");
-		repoInfo.provider_.attachInfo(getContext(), null);
-		logger.debug("Initialized Repository: " + repoInfo.name_);
-	}
-
-	private void validateUri(Uri uri, RepositoryInfo info, UriMatch match)
-	{
-		if (info == null) {
-			throw new IllegalArgumentException("Bad URI: unregistered repository: " + match.repositoryName);
-		}
-		if (match.type == MatchType.REPOSITORY) {
-			throw new IllegalArgumentException("Bad URI: only repository was specified. " + uri);
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 
@@ -124,10 +41,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	{
 		if (logger.isDebugEnabled())
 			logger.debug("delete: " + uri);
-		UriMatch match = EntityUriMatcher.getMatch(uri);
-		RepositoryInfo info = repoInfos_.get(match.repositoryName);
-		validateUri(uri, info, match);
-		return info.provider_.delete(uri, selection, selectionArgs);
+		ContentProvider provider = registry_.get(uri);
+		return provider.delete(uri, selection, selectionArgs);
 	}
 
 	@Override
@@ -135,26 +50,7 @@ public class VdbMainContentProvider extends ContentProvider {
 	{
 		if (logger.isDebugEnabled())
 			logger.debug("getType : " + uri);
-		UriMatch match = EntityUriMatcher.getMatch(uri);
-		RepositoryInfo info = repoInfos_.get(match.repositoryName);
-		if (info == null) {
-			throw new IllegalArgumentException("Bad URI: unregistered repository. " + uri);
-		}
-		if (match.entityName == null) { // points to actual commit/branch
-			switch(match.type) {
-			case REPOSITORY:
-				return BASE_TYPE + "/repository";
-			case COMMIT:
-				return BASE_TYPE + "/commit";
-			case LOCAL_BRANCH:
-				return BASE_TYPE + "/branch.local";
-			case REMOTE_BRANCH:
-				return BASE_TYPE + "/branch.remote";
-			case REMOTE:
-				return BASE_TYPE + "/remote";
-			}
-		}
-		return info.provider_.getType(uri);
+		return registry_.getType(uri);
 	}
 
 	@Override
@@ -162,10 +58,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	{
 		if (logger.isDebugEnabled())
 			logger.debug("insert: " + uri);
-		UriMatch match = EntityUriMatcher.getMatch(uri);
-		RepositoryInfo info = repoInfos_.get(match.repositoryName);
-		validateUri(uri, info, match);
-		return info.provider_.insert(uri, values);
+		ContentProvider provider = registry_.get(uri);
+		return provider.insert(uri, values);
 	}
 
 	@Override
@@ -174,10 +68,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	{
 		if (logger.isDebugEnabled())
 			logger.debug("query: " + uri);
-		UriMatch match = EntityUriMatcher.getMatch(uri);
-		RepositoryInfo info = repoInfos_.get(match.repositoryName);
-		validateUri(uri, info, match);
-		return info.provider_.query(uri, projection, selection, selectionArgs, sortOrder);
+		ContentProvider provider = registry_.get(uri);
+		return provider.query(uri, projection, selection, selectionArgs, sortOrder);
 	}
 
 	@Override
@@ -186,9 +78,7 @@ public class VdbMainContentProvider extends ContentProvider {
 	{
 		if (logger.isDebugEnabled())
 			logger.debug("update: " + uri);
-		UriMatch match = EntityUriMatcher.getMatch(uri);
-		RepositoryInfo info = repoInfos_.get(match.repositoryName);
-		validateUri(uri, info, match);
-		return info.provider_.update(uri, values, selection, selectionArgs);
+		ContentProvider provider = registry_.get(uri);
+		return provider.update(uri, values, selection, selectionArgs);
 	}
 }

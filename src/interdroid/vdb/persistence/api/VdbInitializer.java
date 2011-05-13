@@ -4,4 +4,5 @@ import android.database.sqlite.SQLiteDatabase;
 
 public interface VdbInitializer {
 	public void onCreate(SQLiteDatabase db);
+	public String getSchema();
 }

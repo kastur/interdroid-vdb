@@ -1,8 +1,13 @@
 package interdroid.vdb.content.avro;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import interdroid.vdb.content.EntityUriBuilder;
+import interdroid.vdb.content.VdbConfig.RepositoryConf;
 import interdroid.vdb.content.VdbMainContentProvider;
-import interdroid.vdb.content.VdbMainContentProvider.RepositoryInfo;
+import interdroid.vdb.content.VdbProviderRegistry;
 import interdroid.vdb.content.metadata.DatabaseFieldType;
 import interdroid.vdb.content.orm.DbEntity;
 import interdroid.vdb.content.orm.DbField;
@@ -63,23 +68,17 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 
 	public static final Uri URI = Uri.withAppendedPath(EntityUriBuilder.branchUri(VdbMainContentProvider.AUTHORITY,
 			NAMESPACE, "master"), NAME);
-	private static RepositoryInfo sRegistryInfo;
 
-	public RepositoryInfo[] getAllRepositories() {
+	public List<RepositoryConf> getAllRepositories() {
 		Cursor c = null;
-		RepositoryInfo[] result = null;
+		ArrayList<RepositoryConf> result = new ArrayList<RepositoryConf>();
 		try {
 			c = query(URI, new String[]{KEY_NAMESPACE, KEY_SCHEMA}, null, null, null);
-			int i = 0;
 			if (c != null) {
-				result = new RepositoryInfo[c.getCount()];
-//				result = new RepositoryInfo[c.getCount() + 1];
-//				result[i++] = getRegistryRepositoryInfo();
 				int namespaceIndex = c.getColumnIndex(KEY_NAMESPACE);
 				int schemaIndex = c.getColumnIndex(KEY_SCHEMA);
 				while (c.moveToNext()) {
-					AvroContentProvider provider = new AvroContentProvider(c.getString(schemaIndex));
-					result[i++] = new RepositoryInfo(c.getString(namespaceIndex), provider, provider.buildInitializer());
+					result.add(new RepositoryConf(c.getString(namespaceIndex), c.getString(schemaIndex)));
 				}
 			}
 		} finally {
@@ -88,60 +87,21 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 					c.close();
 				} catch (Exception e) {};
 			}
-			if (result == null) {
-				result = new RepositoryInfo[0];
-//				result = new RepositoryInfo[1];
-//				result[0] = getRegistryRepositoryInfo();
-			}
 		}
 
 		return result;
 	}
 
-	public static RepositoryInfo get(Context context, String repositoryName) {
-		RepositoryInfo result = null;
-
-		// Provide this repository if they ask for it
-		if (repositoryName == NAME) {
-			result = getRegistryRepositoryInfo();
-		} else {
-			Cursor c = null;
-			try {
-				c = context.getContentResolver().query(URI, new String[]{KEY_SCHEMA},
-						KEY_NAME + " = ?", new String[] {repositoryName}, null);
-				if (c != null && c.moveToFirst()) {
-					int schemaIndex = c.getColumnIndex(KEY_SCHEMA);
-					AvroContentProvider provider = new AvroContentProvider(c.getString(schemaIndex));
-					result = new RepositoryInfo(repositoryName, provider, provider.buildInitializer());
-				}
-			} finally {
-				if (c != null) {
-					try {
-						c.close();
-					} catch (Exception e) {};
-				}
-			}
-		}
-
-		return result;
-	}
-
-	private static synchronized RepositoryInfo getRegistryRepositoryInfo() {
-		if (sRegistryInfo == null) {
-			AvroProviderRegistry provider = new AvroProviderRegistry();
-			sRegistryInfo = new RepositoryInfo(NAME, provider, provider.buildInitializer());
-		}
-		return sRegistryInfo;
-	}
-
-	public static void registerSchema(Context context, Schema schema) {
+	public void registerSchema(Context context, Schema schema) {
 		// Have we already registered?
 		Cursor c = null;
 		try {
 			logger.debug("Checking for registration of {}", schema.getName());
-			c = context.getContentResolver().query(URI,
+			logger.debug("Querying against URI: {}", URI);
+			c = query(URI,
 					new String[] {KEY_SCHEMA},
 					KEY_NAME +" = ?", new String[] {schema.getName()}, null);
+			logger.debug("Got cursor: {}", c);
 			if (c != null) {
 				if (c.getCount() == 0) {
 					logger.debug("Not already registered.");
@@ -149,7 +109,15 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 					values.put(KEY_SCHEMA, schema.toString());
 					values.put(KEY_NAME, schema.getName());
 					values.put(KEY_NAMESPACE, schema.getNamespace());
-					context.getContentResolver().insert(URI, values);
+					insert(URI, values);
+
+					try {
+						VdbProviderRegistry registry = new VdbProviderRegistry(context);
+						registry.registerRepository(new RepositoryConf(schema.getNamespace(), schema.toString()));
+					} catch (IOException e) {
+						throw new RuntimeException("Error registering repository", e);
+					}
+
 				} else {
 					// Do we need to update the schema then?
 					logger.debug("Checking if we need to update.");
@@ -159,7 +127,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 						// TODO: Migrate the database to the new schema and check it in.
 						ContentValues values = new ContentValues();
 						values.put(KEY_SCHEMA, schema.toString());
-						context.getContentResolver().update(URI,
+						update(URI,
 								values, KEY_NAME +" = ?", new String[]{AvroProviderRegistry.KEY_NAME});
 					}
 				}
@@ -173,6 +141,16 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 			}
 		}
 		logger.debug("Schema registration complete.");
+	}
+
+	public static AvroProviderRegistry getInstance(Context context) {
+		try {
+			AvroProviderRegistry result = (AvroProviderRegistry) new VdbProviderRegistry(context).get(URI);
+			result.attachInfo(context, null);
+			return result;
+		} catch (IOException e) {
+			throw new RuntimeException("Unable to get AvroProviderRegistry instance");
+		}
 	}
 
 }

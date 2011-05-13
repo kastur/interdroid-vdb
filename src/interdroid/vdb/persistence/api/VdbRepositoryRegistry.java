@@ -10,12 +10,15 @@ import java.util.Map;
 import org.eclipse.jgit.transport.SshConfigSessionFactory;
 import org.eclipse.jgit.transport.SshSessionFactory;
 import org.eclipse.jgit.transport.OpenSshConfig.Host;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.jcraft.jsch.Session;
 
 import android.content.Context;
 
 public class VdbRepositoryRegistry {
+	private static final Logger logger = LoggerFactory.getLogger(VdbRepositoryRegistry.class);
 
 	private static VdbRepositoryRegistry singletonInstance__;
 
@@ -47,6 +50,8 @@ public class VdbRepositoryRegistry {
 			String repositoryName, VdbInitializer initializer)
 	throws IOException
 	{
+		logger.debug("Adding repo: {}", repositoryName);
+
 		VdbRepositoryImpl repo;
 		if (repositories_.containsKey(repositoryName)) {
 			repo = repositories_.get(repositoryName);

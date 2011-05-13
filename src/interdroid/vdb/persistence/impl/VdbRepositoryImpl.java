@@ -38,8 +38,10 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("deprecation")
 public class VdbRepositoryImpl implements VdbRepository {
-	private static final Logger logger = LoggerFactory.getLogger(VdbRepositoryImpl.class)
-	;
+	private static final Logger logger = LoggerFactory.getLogger(VdbRepositoryImpl.class);
+
+	public static final String AVRO_SCHEMA_FILE = "avro.schema";
+
 	private File repoDir_;
 	private final String name_;
 	private final VdbInitializer initializer_;

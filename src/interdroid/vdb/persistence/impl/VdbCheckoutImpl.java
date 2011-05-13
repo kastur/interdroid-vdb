@@ -6,13 +6,16 @@ import interdroid.vdb.persistence.api.MergeInfo;
 import interdroid.vdb.persistence.api.VdbCheckout;
 import interdroid.vdb.persistence.api.VdbInitializer;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.CharBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -37,6 +40,8 @@ import android.database.sqlite.SQLiteDatabase;
 @SuppressWarnings("deprecation")
 public class VdbCheckoutImpl implements VdbCheckout {
 	private static final Logger logger = LoggerFactory.getLogger(VdbCheckoutImpl.class);
+
+	private static final String SCHEMA_FILE = "schema";
 
 	private final VdbRepositoryImpl parentRepo_;
 	private final Repository gitRepo_;
@@ -120,6 +125,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 		GitIndex index = new GitIndex(gitRepo_);
 		clearIndex(index);
 		index.add(checkoutDir_, new File(checkoutDir_, SQLITEDB));
+		index.add(checkoutDir_, new File(checkoutDir_, SCHEMA_FILE));
 		ObjectId newTreeId = index.writeTree();
 
 		Commit commit = new Commit(gitRepo_);
@@ -179,6 +185,14 @@ public class VdbCheckoutImpl implements VdbCheckout {
         SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(new File(masterDir, SQLITEDB), null);
         initializer.onCreate(db);
 		db.setVersion(1);
+
+		File schema = new File(masterDir, SCHEMA_FILE);
+		if (!schema.createNewFile()) {
+			throw new RuntimeException("Unable to create schema file");
+		}
+		FileOutputStream fos = new FileOutputStream(schema);
+		fos.write(initializer.getSchema().getBytes("utf8"));
+		fos.close();
 
 		VdbCheckoutImpl branch = new VdbCheckoutImpl(parentRepo, Constants.MASTER);
 		branch.db_ = db;
@@ -413,5 +427,22 @@ public class VdbCheckoutImpl implements VdbCheckout {
 			accessLock_.writeLock().unlock();
 			parentRepo_.releaseCheckout(checkoutName_);
 		}
+	}
+
+	@Override
+	public String getSchema() throws IOException {
+		File schema = new File(checkoutDir_, SCHEMA_FILE);
+		if (!schema.canRead()) {
+			throw new RuntimeException("Unable to read schema file");
+		}
+		BufferedReader reader = new BufferedReader(new FileReader(schema));
+		CharBuffer target = null;
+		try {
+			target = CharBuffer.allocate((int) schema.length());
+			reader.read(target);
+		} finally {
+			reader.close();
+		}
+		return target == null ? "" : target.toString();
 	}
 }

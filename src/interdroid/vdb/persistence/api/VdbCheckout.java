@@ -1,5 +1,6 @@
 package interdroid.vdb.persistence.api;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import android.database.sqlite.SQLiteDatabase;
@@ -136,4 +137,13 @@ public interface VdbCheckout {
 	 * @throws IOException
 	 */
 	public void delete();
+
+
+	/**
+	 * Returns the schema for this repository if it is an Avro based repository,
+	 * otherwise, this returns an empty string.
+	 * @throws FileNotFoundException
+	 * @throws IOException
+	 */
+	public String getSchema() throws FileNotFoundException, IOException;
 }

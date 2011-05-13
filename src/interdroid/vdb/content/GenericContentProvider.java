@@ -21,6 +21,8 @@ import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.SQLException;
@@ -44,7 +46,11 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 	// TODO: (nick) Support for multiple key tables?
 
 	private String escapeName(EntityInfo info) {
-		return DatabaseUtils.sqlEscapeString(escapeName(namespace_, info.namespace(), info.name()));
+		return escapeName(namespace_, info);
+	}
+
+	private static String escapeName(String namespace, EntityInfo info) {
+		return DatabaseUtils.sqlEscapeString(escapeName(namespace, info.namespace(), info.name()));
 	}
 
 	public static String escapeName(String defaultNamespace, String namespace, String name) {
@@ -57,7 +63,23 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 	}
 
-	public class DatabaseInitializer implements VdbInitializer {
+	public static class DatabaseInitializer implements VdbInitializer {
+		private final Metadata metadata_;
+		private final String namespace_;
+		private final String schema_;
+
+		public DatabaseInitializer(String namespace, Metadata metadata) {
+			metadata_ = metadata;
+			namespace_ = namespace;
+			schema_ = "";
+		}
+
+		public DatabaseInitializer(String namespace, Metadata metadata, String schema) {
+			metadata_ = metadata;
+			namespace_ = namespace;
+			schema_ = schema;
+		}
+
 		@Override
 		public void onCreate(SQLiteDatabase db)
 		{
@@ -76,11 +98,11 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 			boolean firstField = true;
 			ArrayList<EntityInfo>children = new ArrayList<EntityInfo>();
 			if (logger.isDebugEnabled())
-				logger.debug("Creating table for: " + entity.namespace() + " : " + entity.name() + ":" + escapeName(entity));
-			db.execSQL("DROP TABLE IF EXISTS " + escapeName(entity));
+				logger.debug("Creating table for: " + entity.namespace() + " : " + entity.name() + ":" + escapeName(namespace_, entity));
+			db.execSQL("DROP TABLE IF EXISTS " + escapeName(namespace_, entity));
 
 			StringBuilder createSql = new StringBuilder("CREATE TABLE ");
-			createSql.append(escapeName(entity));
+			createSql.append(escapeName(namespace_, entity));
 			createSql.append("(");
 			for (FieldInfo field : entity.getFields()) {
 				switch (field.dbType) {
@@ -103,7 +125,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 					createSql.append(" ");
 					createSql.append(DatabaseFieldType.INTEGER);
 					createSql.append(" REFERENCES ");
-					createSql.append(escapeName(field.targetEntity));
+					createSql.append(escapeName(namespace_, field.targetEntity));
 					createSql.append("(");
 					createSql.append(field.targetField.fieldName);
 					createSql.append(")");
@@ -120,7 +142,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 					createSql.append(field.dbTypeName());
 					if (field.targetEntity != null) {
 						createSql.append(" REFERENCES ");
-						createSql.append(escapeName(field.targetEntity));
+						createSql.append(escapeName(namespace_, field.targetEntity));
 						createSql.append("(");
 						createSql.append(field.targetField.fieldName);
 						createSql.append(") DEFERRABLE");
@@ -163,27 +185,42 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 					values.clear();
 					values.put("_id", ordinal);
 					values.put("_value", value);
-					db.insert(escapeName(entity), "_id", values);
+					db.insert(escapeName(namespace_, entity), "_id", values);
 				}
 			}
+		}
+
+		@Override
+		public String getSchema() {
+			return schema_;
 		}
 	}
 
 	public VdbInitializer buildInitializer() {
 		logger.debug("Building initializer.");
-		return new DatabaseInitializer();
+		return new DatabaseInitializer(namespace_, metadata_);
 	}
 
 	@Override
 	public boolean onCreate() {
+
+		return true;
+	}
+
+	public void attachInfo(Context context, ProviderInfo info) {
+		super.attachInfo(context, info);
 		if (logger.isDebugEnabled())
-			logger.debug("onCreate for: " + namespace_);
+			logger.debug("attachInfo for: " + namespace_);
 		vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(namespace_);
 		if (vdbRepo_ == null) {
-			throw new RuntimeException("Unable to get repository instance for namespace: " + namespace_);
+			logger.debug("registering repository");
+			try {
+				vdbRepo_ = VdbRepositoryRegistry.getInstance().addRepository(context, namespace_, buildInitializer());
+			} catch (IOException e) {
+				throw new RuntimeException("Error initializing repository", e);
+			}
 		}
 		logger.debug("Fetched repository.");
-		return true;
 	}
 
 	public GenericContentProvider(String namespace, Metadata metadata)
@@ -327,15 +364,20 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 			throw new RuntimeException("getReadOnlyDatabase failed", e);
 		}
 
+		logger.debug("Got database: {}", db);
+
 		// TODO(emilian): default sort order
 
 		try {
 			if (logger.isDebugEnabled())
 				logger.debug("Querying with: " + qb.buildQuery(projection, selection, selectionArgs, null, null, sortOrder, null));
 			Cursor c = qb.query(db, projection, selection, selectionArgs, null, null, sortOrder);
-
-			// Tell the cursor what uri to watch, so it knows when its source data changes
-			c.setNotificationUri(getContext().getContentResolver(), uri);
+			logger.debug("Got cursor: {}", c);
+			if (c != null && getContext() != null) {
+				// Tell the cursor what uri to watch, so it knows when its source data changes
+				c.setNotificationUri(getContext().getContentResolver(), uri);
+			}
+			logger.debug("Returning cursor.");
 			return c;
 		} finally {
 			vdbBranch.releaseDatabase();

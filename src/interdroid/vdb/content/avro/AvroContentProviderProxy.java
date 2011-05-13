@@ -13,6 +13,7 @@ import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.net.Uri;
 
@@ -30,6 +31,7 @@ public class AvroContentProviderProxy extends ContentProvider {
 	}
 
 	public AvroContentProviderProxy(Schema schema) {
+		logger.debug("Constructing provider proxy.");
 		schema_ = schema;
 	}
 
@@ -70,13 +72,13 @@ public class AvroContentProviderProxy extends ContentProvider {
 	}
 
 	@Override
-	public boolean onCreate() {
+	public void attachInfo(Context context, ProviderInfo info) {
 		// Make sure we are registered.
-		logger.debug("onCreate");
+		logger.debug("attachInfo");
 		logger.debug("Registering schema: {}", schema_.getName());
-		AvroProviderRegistry.registerSchema(getContext(), schema_);
+		AvroProviderRegistry.getInstance(context).registerSchema(context, schema_);
 		logger.debug("Schema registered.");
-		return false;
+		super.attachInfo(context, info);
 	}
 
 	@Override
@@ -89,6 +91,12 @@ public class AvroContentProviderProxy extends ContentProvider {
 	public int update(Uri uri, ContentValues values, String selection,
 			String[] selectionArgs) {
 		return getContext().getContentResolver().update(remapUri(uri), values, selection, selectionArgs);
+	}
+
+	@Override
+	public boolean onCreate() {
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 }

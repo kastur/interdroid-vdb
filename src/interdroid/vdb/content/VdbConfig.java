@@ -23,8 +23,20 @@ public class VdbConfig {
 	public static class RepositoryConf {
 		String name_;
 		String contentProvider_;
+		String avroSchema_ = null;
 
 		private RepositoryConf() {}
+
+		public RepositoryConf(String name, String contentProvider, String avroSchema) {
+			name_ = name;
+			contentProvider_ = contentProvider;
+			avroSchema_ = avroSchema;
+		}
+
+		public RepositoryConf(String name, String avroSchema) {
+			name_ = name;
+			avroSchema_ = avroSchema;
+		}
 
 		public static RepositoryConf parseFromStartTag(XmlPullParser xpp)
 		throws XmlPullParserException, IOException
