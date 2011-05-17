@@ -9,7 +9,7 @@ public class EntityUriBuilder {
 	public static Uri repositoryUri(String authority, String repoName)
 	{
 		String uriStr = "content://" + authority + "/"
-				+ repoName;
+				+ (repoName.equals(authority) ? "" : repoName);
 		return Uri.parse(uriStr);
 	}
 

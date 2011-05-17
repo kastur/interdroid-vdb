@@ -15,15 +15,14 @@ import java.util.Set;
 import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.GitIndex;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ProgressMonitor;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefDatabase;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.lib.RepositoryConfig;
-import org.eclipse.jgit.lib.Tree;
+import org.eclipse.jgit.lib.RepositoryBuilder;
+import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
@@ -36,7 +35,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-@SuppressWarnings("deprecation")
 public class VdbRepositoryImpl implements VdbRepository {
 	private static final Logger logger = LoggerFactory.getLogger(VdbRepositoryImpl.class);
 
@@ -44,8 +42,8 @@ public class VdbRepositoryImpl implements VdbRepository {
 
 	private File repoDir_;
 	private final String name_;
-	private final VdbInitializer initializer_;
 	private Repository gitRepo_;
+	private final VdbInitializer initializer_;
 	private final Map<String, VdbCheckoutImpl> checkouts_ = new HashMap<String, VdbCheckoutImpl>();
 
     private static final String BRANCH_REF_PREFIX = Constants.R_HEADS;
@@ -66,24 +64,42 @@ public class VdbRepositoryImpl implements VdbRepository {
 		return repoDir_;
 	}
 
-	public Repository getGitRepository()
-	{
+	public Repository getGitRepository() {
+		if (gitRepo_ == null) {
+			gitRepo_ = getGitRepository(null);
+		}
 		return gitRepo_;
+	}
+
+	public Repository getGitRepository(String workingDir)
+	{
+		RepositoryBuilder builder = new RepositoryBuilder();
+		builder.setWorkTree(repoDir_);
+		builder.setGitDir(new File(repoDir_, ".git"));
+		if (workingDir == null) {
+			builder.setBare();
+		} else {
+			builder.setWorkTree(new File(repoDir_, workingDir));
+		}
+		Repository repo;
+		try {
+			repo = builder.build();
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		return repo;
 	}
 
     private void initializeRepository()
     {
     	logger.debug("Initializing Repository");
-    	try {
-			gitRepo_ = new Repository(null, repoDir_);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+    	Repository repo;
+    	repo = getGitRepository();
 
     	File gitDir = new File(repoDir_, ".git");
     	if (!gitDir.exists()) {
     		try {
-				gitRepo_.create();
+				repo.create();
 				if (logger.isDebugEnabled())
 					logger.debug("Creating master.");
 				VdbCheckoutImpl master = VdbCheckoutImpl.createMaster(this, initializer_);
@@ -104,10 +120,13 @@ public class VdbRepositoryImpl implements VdbRepository {
     	if (!checkoutDir.isDirectory()) {
     		throw new IOException("Could not create checkout directory " + subdir);
     	}
-    	Tree tree = gitRepo_.mapTree(reference);
-    	GitIndex idx = gitRepo_.getIndex();
-    	idx.readTree(tree);
-    	idx.checkout(checkoutDir);
+    	Repository repo = getGitRepository(subdir);
+    	repo.create();
+
+//    	Tree tree = getGitRepository().mapTree(reference);
+//    	GitIndex idx = getGitRepository().getIndex();
+//    	idx.readTree(tree);
+//    	idx.checkout(checkoutDir);
 
     	return checkoutDir;
     }
@@ -125,17 +144,17 @@ public class VdbRepositoryImpl implements VdbRepository {
 	@Override
 	public void createBranch(String branchName, String baseRef) throws IOException
 	{
-		ObjectId oId = gitRepo_.resolve(baseRef);
+		ObjectId oId = getGitRepository(null).resolve(baseRef);
     	createBranchFromId(branchName, oId);
 	}
 
     private void createBranchFromId(String branchName, ObjectId oId) throws IOException
     {
-    	Ref ref = gitRepo_.getRef(BRANCH_REF_PREFIX + branchName);
+    	Ref ref = getGitRepository().getRef(BRANCH_REF_PREFIX + branchName);
     	if (ref != null && ref.getObjectId() != null) {
     		throw new IOException("Branch already exists, not overwriting.");
     	}
-    	final RefUpdate ru = gitRepo_.updateRef(BRANCH_REF_PREFIX + branchName);
+    	final RefUpdate ru = getGitRepository().updateRef(BRANCH_REF_PREFIX + branchName);
 		ru.setNewObjectId(oId);
 		ru.disableRefLog();
 		if (ru.forceUpdate() == RefUpdate.Result.LOCK_FAILURE) {
@@ -144,7 +163,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 		try {
 			checkoutBranch(branchName);
 		} catch(IOException e) {
-			RefUpdate undoRu = gitRepo_.updateRef(BRANCH_REF_PREFIX + branchName);
+			RefUpdate undoRu = getGitRepository().updateRef(BRANCH_REF_PREFIX + branchName);
 			undoRu.delete();
 
 			throw e;
@@ -154,29 +173,29 @@ public class VdbRepositoryImpl implements VdbRepository {
 	@Override
 	public Set<String> listBranches() throws IOException
 	{
-		Map<String, Ref> branches = gitRepo_.getRefDatabase().getRefs(BRANCH_REF_PREFIX);
+		Map<String, Ref> branches = getGitRepository().getRefDatabase().getRefs(BRANCH_REF_PREFIX);
 		return branches.keySet();
 	}
 
 	public Set<String> listRemotes() throws IOException
 	{
-		Config rc = gitRepo_.getConfig();
+		Config rc = getGitRepository().getConfig();
 		return rc.getSubsections(RemoteInfo.SECTION);
 	}
 
 	@Override
 	public Set<String> listRemoteBranches() throws IOException
 	{
-		Map<String, Ref> branches = gitRepo_.getRefDatabase().getRefs(REMOTES_REF_PREFIX);
+		Map<String, Ref> branches = getGitRepository().getRefDatabase().getRefs(REMOTES_REF_PREFIX);
 		return branches.keySet();
 	}
 
 	@Override
 	public RevWalk enumerateCommits(String... leaves) throws IOException
 	{
-		RevWalk rw = new RevWalk(gitRepo_);
+		RevWalk rw = new RevWalk(getGitRepository());
 		for (String leaf : leaves) {
-			Ref r = gitRepo_.getRef(leaf);
+			Ref r = getGitRepository().getRef(leaf);
 			if (r == null  || r.getObjectId() == null) {
 				 // TODO(emilian): proper exception
 				throw new IOException("Invalid leaf reference.");
@@ -193,7 +212,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 			throw new IllegalArgumentException("Need to specify at least 2 commits.");
 		}
 
-		RevWalk walk = new RevWalk(gitRepo_);
+		RevWalk walk = new RevWalk(getGitRepository());
 		walk.setRevFilter(RevFilter.MERGE_BASE);
 		walk.setTreeFilter(TreeFilter.ALL);
 
@@ -251,7 +270,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 		checkout.delete();
 		checkouts_.remove(branchName);
 
-		RefUpdate update = gitRepo_.getRefDatabase()
+		RefUpdate update = getGitRepository().getRefDatabase()
 			.newUpdate(BRANCH_REF_PREFIX + branchName, true /* detach */);
 		update.setForceUpdate(true);
 		Result res = update.delete();
@@ -263,12 +282,12 @@ public class VdbRepositoryImpl implements VdbRepository {
 	@Override
 	public synchronized void deleteRemote(String remoteName) throws IOException
 	{
-		RepositoryConfig rc = gitRepo_.getConfig();
+		StoredConfig rc = getGitRepository().getConfig();
 		rc.unsetSection(RemoteInfo.SECTION, remoteName);
 		rc.save();
 
 		// now remove all references
-		RefDatabase refDb = gitRepo_.getRefDatabase();
+		RefDatabase refDb = getGitRepository().getRefDatabase();
 		String refsPrefix = REMOTES_REF_PREFIX + remoteName + "/";
 		Map<String, Ref> branches = refDb.getRefs(refsPrefix);
 		for (String name : branches.keySet()) {
@@ -281,8 +300,8 @@ public class VdbRepositoryImpl implements VdbRepository {
 	@Override
 	public VdbCheckout getRemoteBranch(String remoteBranchName) throws IOException
 	{
-		gitRepo_.scanForRepoChanges();
-		Ref ref = gitRepo_.getRefDatabase().getRefs(Constants.R_REMOTES)
+		getGitRepository().scanForRepoChanges();
+		Ref ref = getGitRepository().getRefDatabase().getRefs(Constants.R_REMOTES)
 				.get(remoteBranchName);
 		ObjectId commitId = ref.getObjectId();
 		if (commitId == null) {
@@ -299,7 +318,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 		}
 		RemoteInfo info = new RemoteInfo(remoteName);
 		try {
-			info.load(gitRepo_.getConfig());
+			info.load(getGitRepository().getConfig());
 		} catch (URISyntaxException e) {
 			throw new RuntimeException(e);
 		}
@@ -309,7 +328,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 	@Override
 	public void saveRemote(RemoteInfo info) throws IOException
 	{
-		RepositoryConfig rc = gitRepo_.getConfig();
+		StoredConfig rc = getGitRepository().getConfig();
 		try {
 			info.save(rc);
 		} catch (URISyntaxException e) {
@@ -325,8 +344,8 @@ public class VdbRepositoryImpl implements VdbRepository {
 			if (getRemoteInfo(remoteName) == null) {
 				throw new RuntimeException("The remote is not configured.");
 			}
-			RemoteConfig cfg = new RemoteConfig(gitRepo_.getConfig(), remoteName);
-			return Transport.open(gitRepo_, cfg);
+			RemoteConfig cfg = new RemoteConfig(getGitRepository().getConfig(), remoteName);
+			return Transport.open(getGitRepository(), cfg);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		} catch (URISyntaxException e) {

@@ -20,11 +20,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.eclipse.jgit.lib.AnyObjectId;
-import org.eclipse.jgit.lib.Commit;
+import org.eclipse.jgit.lib.CommitBuilder;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.GitIndex;
 import org.eclipse.jgit.lib.ObjectId;
-import org.eclipse.jgit.lib.ObjectWriter;
+import org.eclipse.jgit.lib.ObjectInserter;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefUpdate;
@@ -71,7 +71,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 		parentRepo_ = parentRepo;
 		checkoutName_ = checkoutName;
 		checkoutDir_ = new File(parentRepo.getRepositoryDir(), checkoutName);
-		gitRepo_ = parentRepo.getGitRepository();
+		gitRepo_ = parentRepo.getGitRepository(checkoutName);
 
 		if (!checkoutDir_.isDirectory()) { // assume it's already checked out
     		throw new RuntimeException("Not checked out yet.");
@@ -128,7 +128,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 		index.add(checkoutDir_, new File(checkoutDir_, SCHEMA_FILE));
 		ObjectId newTreeId = index.writeTree();
 
-		Commit commit = new Commit(gitRepo_);
+		CommitBuilder commit = new CommitBuilder();
 		commit.setCommitter(new PersonIdent(authorName, authorEmail));
 		commit.setAuthor(new PersonIdent(authorName, authorEmail));
 		commit.setTreeId(newTreeId);
@@ -148,12 +148,12 @@ public class VdbCheckoutImpl implements VdbCheckout {
 			commit.setParentIds(new ObjectId[0]);
 		}
 
-		ObjectWriter writer = new ObjectWriter(gitRepo_);
-		commit.setCommitId(writer.writeCommit(commit));
+		ObjectInserter writer = gitRepo_.newObjectInserter();
+		ObjectId commitId = writer.insert(commit);
 
 		final RefUpdate ru = gitRepo_
 				.updateRef(BRANCH_REF_PREFIX + checkoutName_);
-		ru.setNewObjectId(commit.getCommitId());
+		ru.setNewObjectId(commitId);
 		ru.disableRefLog();
 		if (ru.forceUpdate() == RefUpdate.Result.LOCK_FAILURE) {
 			throw new IOException("Error updating reference for branch "
@@ -169,7 +169,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 
 		if (logger.isDebugEnabled())
 			logger.debug("Succesfully committed revision "
-				+ commit.getCommitId().toString() + " on branch "
+				+ commitId.toString() + " on branch "
 				+ checkoutName_);
 	}
 
@@ -365,7 +365,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 
 		MergeInfo info = new MergeInfo();
 		try {
-			AnyObjectId theirCommit = gitRepo_.mapCommit(theirSha1).getCommitId();
+			AnyObjectId theirCommit = gitRepo_.resolve(theirSha1);
 			AnyObjectId ourCommit = gitRepo_.getRef(BRANCH_REF_PREFIX + checkoutName_).getObjectId();
 
 			info.theirCommit_ = theirCommit.getName();

@@ -7,13 +7,13 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.eclipse.jgit.transport.SshConfigSessionFactory;
-import org.eclipse.jgit.transport.SshSessionFactory;
-import org.eclipse.jgit.transport.OpenSshConfig.Host;
+//import org.eclipse.jgit.transport.SshConfigSessionFactory;
+//import org.eclipse.jgit.transport.SshSessionFactory;
+//import org.eclipse.jgit.transport.OpenSshConfig.Host;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.jcraft.jsch.Session;
+//import com.jcraft.jsch.Session;
 
 import android.content.Context;
 
@@ -24,14 +24,14 @@ public class VdbRepositoryRegistry {
 
 	private VdbRepositoryRegistry()
 	{
-		// disable strict host checking for push/pull ssh connections
-		SshSessionFactory.setInstance( new SshConfigSessionFactory() {
-			@Override
-			protected void configure(Host hc, Session session)
-			{
-				session.setConfig("StrictHostKeyChecking", "no");
-			}
-		});
+//		// disable strict host checking for push/pull ssh connections
+//		SshSessionFactory.setInstance( new SshConfigSessionFactory() {
+//			@Override
+//			protected void configure(Host hc, Session session)
+//			{
+//				session.setConfig("StrictHostKeyChecking", "no");
+//			}
+//		});
 	}
 
 	public static synchronized VdbRepositoryRegistry getInstance()

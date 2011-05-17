@@ -32,7 +32,6 @@ import android.net.Uri;
 import android.text.TextUtils;
 
 
-
 public abstract class GenericContentProvider extends ContentProvider implements VdbInitializerFactory {
 	private static final Logger logger = LoggerFactory.getLogger(GenericContentProvider.class);
 
@@ -410,14 +409,15 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		try {
 			values = sanitize(values);
 			if (result.entityIdentifier != null) {
-				if (logger.isDebugEnabled()) {
-					logger.debug("Updating: " + escapeName(entityInfo) + " : " + values);
-					logger.debug("Where: " + entityInfo.key.get(0).fieldName + "=" + result.entityIdentifier
-						+ (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""));
-					logger.debug("Where args: " + whereArgs);
+				if (whereArgs != null) {
+					String[] temp = new String[whereArgs.length + 1];
+					System.arraycopy(whereArgs, 0, temp, 0, whereArgs.length);
+					temp[temp.length - 1] = result.entityIdentifier;
+				} else {
+					whereArgs =  new String[] {result.entityIdentifier};
 				}
-				count = db.update(escapeName(entityInfo), values,
-						"'"+ entityInfo.key.get(0).fieldName + "'=" + result.entityIdentifier
+				count = db.update(escapeName(entityInfo), values, //null, null);
+						entityInfo.key.get(0).fieldName + "=?"
 						+ (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
 			} else {
 				count = db.update(escapeName(entityInfo), values, where, whereArgs);
@@ -436,6 +436,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		 */
 
 		getContext().getContentResolver().notifyChange(uri, null);
+		logger.debug("Updated: {}", count);
 		return count;
 
 	}
@@ -445,7 +446,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		ContentValues cleanValues = new ContentValues();
 		for (Entry<String, Object> val : values.valueSet()) {
 			Object value = val.getValue();
-			String cleanName = val.getKey().startsWith("\"") ? val.getKey() : "\"" + val.getKey() + "\"";
+			String cleanName = val.getKey().startsWith("'") ? val.getKey() : "'" + val.getKey() + "'";
 			// This really sucks. There is no generic put an object....
 			if (value == null) {
 				cleanValues.putNull(cleanName);
