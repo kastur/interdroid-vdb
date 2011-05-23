@@ -51,9 +51,14 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.Config.SectionParser;
 import org.eclipse.jgit.transport.resolver.ServiceNotAuthorizedException;
 import org.eclipse.jgit.transport.resolver.ServiceNotEnabledException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** A service exposed by {@link Daemon} over anonymous <code>git://</code>. */
 public abstract class SmartsocketsDaemonService {
+	private static final Logger logger = LoggerFactory
+			.getLogger(SmartsocketsDaemonService.class);
+
 	private final String command;
 
 	private final SectionParser<ServiceConfig> configKey;
@@ -130,9 +135,13 @@ public abstract class SmartsocketsDaemonService {
 			throws IOException, ServiceNotEnabledException,
 			ServiceNotAuthorizedException {
 		final String name = commandLine.substring(command.length() + 1);
-		Repository db = client.getDaemon().openRepository(client, name);
-		if (db == null)
-			return;
+		logger.debug("Got request for repo: {}", name);
+		Repository db = null;
+		if (name != null && name.length() > 0) {
+			db = client.getDaemon().openRepository(client, name);
+			if (db == null)
+				return;
+		}
 		try {
 			if (isEnabledFor(db))
 				execute(client, db);
@@ -142,8 +151,10 @@ public abstract class SmartsocketsDaemonService {
 	}
 
 	private boolean isEnabledFor(final Repository db) {
-		if (isOverridable())
-			return db.getConfig().get(configKey).enabled;
+		if (db != null) {
+			if (isOverridable())
+				return db.getConfig().get(configKey).enabled;
+		}
 		return isEnabled();
 	}
 

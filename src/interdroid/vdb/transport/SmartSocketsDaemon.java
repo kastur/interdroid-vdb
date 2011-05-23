@@ -147,6 +147,19 @@ public class SmartSocketsDaemon {
 		};
 
 		services = new SmartsocketsDaemonService[] {
+				new SmartsocketsDaemonService("list-repos", "listrepos") {
+					{
+						setEnabled(true);
+					}
+
+					@Override
+					protected void execute(final SmartSocketsDaemonClient dc,
+							final Repository db) throws IOException,
+							ServiceNotEnabledException,
+							ServiceNotAuthorizedException {
+						logger.debug("List Repos Called");
+					}
+				},
 				new SmartsocketsDaemonService("upload-pack", "uploadpack") {
 					{
 						setEnabled(true);
