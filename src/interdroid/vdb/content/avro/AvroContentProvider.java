@@ -44,11 +44,12 @@ public class AvroContentProvider extends GenericContentProvider {
 
 	@Override
 	public void attachInfo(Context context, ProviderInfo info) {
+		super.attachInfo(context, info);
+
 		// Make sure we are registered.
 		logger.debug("attachInfo");
 		logger.debug("Registering schema: {}", schema_.getName());
-		AvroProviderRegistry.getInstance(context).registerSchema(context, schema_);
+		AvroProviderRegistry.registerSchema(context, schema_);
 		logger.debug("Schema registered.");
-		super.attachInfo(context, info);
 	}
 }

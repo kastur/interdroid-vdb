@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.net.Uri;
 
@@ -62,6 +63,8 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 
 	}
 
+	private Context mContext;
+
 	public AvroProviderRegistry() {
 		super(NAMESPACE, RegistryConf.class);
 	}
@@ -92,13 +95,35 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		return result;
 	}
 
-	public void registerSchema(Context context, Schema schema) {
+	@Override
+	public void attachInfo(Context context, ProviderInfo info) {
+		super.attachInfo(context, info);
+		mContext = context;
+	}
+
+	@Override
+	public Uri insert(Uri uri, ContentValues userValues)
+	{
+		Uri result = super.insert(uri, userValues);
+
+		VdbProviderRegistry registry;
+		try {
+			registry = new VdbProviderRegistry(mContext);
+			registry.registerRepository(new RepositoryConf(userValues.getAsString(KEY_NAMESPACE), userValues.getAsString(KEY_SCHEMA)));
+		} catch (IOException e) {
+			throw new RuntimeException("Unable to build registry: ", e);
+		}
+
+		return result;
+	}
+
+	public static void registerSchema(Context context, Schema schema) {
 		// Have we already registered?
 		Cursor c = null;
 		try {
 			logger.debug("Checking for registration of {}", schema.getName());
 			logger.debug("Querying against URI: {}", URI);
-			c = query(URI,
+			c = context.getContentResolver().query(URI,
 					new String[] {KEY_SCHEMA},
 					KEY_NAME +" = ?", new String[] {schema.getName()}, null);
 			logger.debug("Got cursor: {}", c);
@@ -109,15 +134,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 					values.put(KEY_SCHEMA, schema.toString());
 					values.put(KEY_NAME, schema.getName());
 					values.put(KEY_NAMESPACE, schema.getNamespace());
-					insert(URI, values);
-
-					try {
-						VdbProviderRegistry registry = new VdbProviderRegistry(context);
-						registry.registerRepository(new RepositoryConf(schema.getNamespace(), schema.toString()));
-					} catch (IOException e) {
-						throw new RuntimeException("Error registering repository", e);
-					}
-
+					context.getContentResolver().insert(URI, values);
 				} else {
 					// Do we need to update the schema then?
 					logger.debug("Checking if we need to update.");
@@ -127,7 +144,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 						// TODO: Migrate the database to the new schema and check it in.
 						ContentValues values = new ContentValues();
 						values.put(KEY_SCHEMA, schema.toString());
-						update(URI,
+						context.getContentResolver().update(URI,
 								values, KEY_NAME +" = ?", new String[]{AvroProviderRegistry.KEY_NAME});
 					}
 				}
@@ -142,15 +159,4 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		}
 		logger.debug("Schema registration complete.");
 	}
-
-	public static AvroProviderRegistry getInstance(Context context) {
-		try {
-			AvroProviderRegistry result = (AvroProviderRegistry) new VdbProviderRegistry(context).get(URI);
-			result.attachInfo(context, null);
-			return result;
-		} catch (IOException e) {
-			throw new RuntimeException("Unable to get AvroProviderRegistry instance");
-		}
-	}
-
 }

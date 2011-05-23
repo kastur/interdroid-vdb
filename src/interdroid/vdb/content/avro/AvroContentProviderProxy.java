@@ -59,7 +59,7 @@ public class AvroContentProviderProxy extends ContentProvider {
 	@Override
 	public Uri insert(Uri uri, ContentValues values) {
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		ContentChangeHandler handler = ContentChangeHandler.getHandler(result.entityName);
+		ContentChangeHandler handler = ContentChangeHandler.getHandler(result.authority, result.entityName);
 		if (handler != null) {
 			handler.preInsertHook(values);
 		}
@@ -76,7 +76,7 @@ public class AvroContentProviderProxy extends ContentProvider {
 		// Make sure we are registered.
 		logger.debug("attachInfo");
 		logger.debug("Registering schema: {}", schema_.getName());
-		AvroProviderRegistry.getInstance(context).registerSchema(context, schema_);
+		AvroProviderRegistry.registerSchema(context, schema_);
 		logger.debug("Schema registered.");
 		super.attachInfo(context, info);
 	}

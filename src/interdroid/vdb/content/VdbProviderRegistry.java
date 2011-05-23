@@ -43,12 +43,14 @@ public class VdbProviderRegistry {
 		context_ = context;
 
 		if (repoInfos_.size() == 0) {
+			logger.debug("Initializing static repositories.");
 			VdbConfig config = new VdbConfig(context);
 			initializeAll(config.getRepositories());
 
 			logger.debug("Initializing Avro Repos.");
 			List<RepositoryConf> infos = ((AvroProviderRegistry)get(AvroProviderRegistry.URI)).getAllRepositories();
 			initializeAll(infos);
+			logger.debug("All repositories registered.");
 		}
 	}
 
@@ -86,7 +88,7 @@ public class VdbProviderRegistry {
 
 				// Do this at the end, since onCreate will be called in the child
 				// We want everything to be registered prior to this happening.
-				logger.debug("Attaching context to provider.");
+				logger.debug("Attaching context: {} to provider.", context);
 				info.provider_.attachInfo(context, null);
 				logger.debug("Initialized Repository: " + info.conf_.name_);
 			}
@@ -144,5 +146,14 @@ public class VdbProviderRegistry {
 			}
 		}
 		return info.provider_.getType(uri);
+	}
+
+	public void initByName(String name) {
+		RepositoryInfo info = repoInfos_.get(name);
+		try {
+			buildProvider(context_, info);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

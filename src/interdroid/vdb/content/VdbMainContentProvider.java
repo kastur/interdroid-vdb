@@ -28,6 +28,8 @@ public class VdbMainContentProvider extends ContentProvider {
 	}
 
 	public void attachInfo(Context context, ProviderInfo info) {
+		super.attachInfo(context, info);
+
 		try {
 			registry_ = new VdbProviderRegistry(context);
 		} catch (IOException e) {

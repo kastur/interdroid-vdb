@@ -10,6 +10,7 @@ import java.util.Map;
 //import org.eclipse.jgit.transport.SshConfigSessionFactory;
 //import org.eclipse.jgit.transport.SshSessionFactory;
 //import org.eclipse.jgit.transport.OpenSshConfig.Host;
+import org.eclipse.jgit.lib.Repository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,6 +71,15 @@ public class VdbRepositoryRegistry {
 
 	public synchronized VdbRepository getRepository(String repositoryName)
 	{
+		logger.debug("Getting repository: {} : {}", repositoryName, repositories_.size());
 		return repositories_.get(repositoryName);
+	}
+
+	public Repository getJGitRepository(String name) {
+		VdbRepository repo = getRepository(name);
+		if (repo != null) {
+			return ((VdbRepositoryImpl) repo).getGitRepository();
+		}
+		return null;
 	}
 }

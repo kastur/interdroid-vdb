@@ -289,7 +289,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 
 		// Propogate the change to the preInsertHook if there is one
-		ContentChangeHandler handler = ContentChangeHandler.getHandler(entityInfo.name());
+		ContentChangeHandler handler = ContentChangeHandler.getHandler(entityInfo.namespace(), entityInfo.name());
 		if (handler != null) {
 			handler.preInsertHook(values);
 		}
