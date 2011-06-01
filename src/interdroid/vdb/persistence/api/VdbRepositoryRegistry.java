@@ -1,11 +1,13 @@
 package interdroid.vdb.persistence.api;
 
+import interdroid.vdb.content.VdbProviderRegistry;
 import interdroid.vdb.persistence.impl.VdbRepositoryImpl;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 //import org.eclipse.jgit.transport.SshConfigSessionFactory;
 //import org.eclipse.jgit.transport.SshSessionFactory;
@@ -69,14 +71,21 @@ public class VdbRepositoryRegistry {
 		return repo;
 	}
 
-	public synchronized VdbRepository getRepository(String repositoryName)
+	public synchronized VdbRepository getRepository(Context context, String repositoryName) throws IOException
 	{
 		logger.debug("Getting repository: {} : {}", repositoryName, repositories_.size());
+		// Make sure the repository has been initialized.
+		new VdbProviderRegistry(context).initByName(repositoryName);
+		if (logger.isDebugEnabled()) {
+			for(String repo : repositories_.keySet()) {
+				logger.debug("Repo: {}", repo);
+			}
+		}
 		return repositories_.get(repositoryName);
 	}
 
-	public Repository getJGitRepository(String name) {
-		VdbRepository repo = getRepository(name);
+	public Repository getJGitRepository(Context context, String name) throws IOException {
+		VdbRepository repo = getRepository(context, name);
 		if (repo != null) {
 			return ((VdbRepositoryImpl) repo).getGitRepository();
 		}

@@ -210,7 +210,11 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		super.attachInfo(context, info);
 		if (logger.isDebugEnabled())
 			logger.debug("attachInfo for: " + namespace_);
-		vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(namespace_);
+		try {
+			vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(context, namespace_);
+		} catch (IOException e) {
+			logger.error("Unable to get repository for: " + namespace_, e);
+		}
 		if (vdbRepo_ == null) {
 			logger.debug("registering repository");
 			try {

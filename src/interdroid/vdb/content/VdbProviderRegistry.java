@@ -6,9 +6,11 @@ import interdroid.vdb.content.VdbConfig.RepositoryConf;
 import interdroid.vdb.content.avro.AvroContentProvider;
 import interdroid.vdb.content.avro.AvroProviderRegistry;
 import interdroid.vdb.persistence.api.VdbInitializer;
+import interdroid.vdb.persistence.api.VdbRepository;
 import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +30,9 @@ public class VdbProviderRegistry {
 	private final Context context_;
 
 	private static final Map<String,RepositoryInfo> repoInfos_ = new HashMap<String, RepositoryInfo>();
+
+	public static final String REPOSITORY_NAME = "repoName";
+	private static final String REPOSITORY_ID = "id_";
 
 	private static class RepositoryInfo {
 		public final RepositoryConf conf_;
@@ -126,11 +131,11 @@ public class VdbProviderRegistry {
 	public String getType(Uri uri) {
 		UriMatch match = EntityUriMatcher.getMatch(uri);
 		RepositoryInfo info = repoInfos_.get(match.repositoryName);
-		validateUri(uri, info, match);
 
 		if (info == null) {
 			throw new IllegalArgumentException("Bad URI: unregistered repository. " + uri);
 		}
+		logger.debug("Getting type: {} : {}", match.entityName, match.type);
 		if (match.entityName == null) { // points to actual commit/branch
 			switch(match.type) {
 			case REPOSITORY:
@@ -145,6 +150,7 @@ public class VdbProviderRegistry {
 				return BASE_TYPE + "/remote";
 			}
 		}
+		logger.debug("Asking provider for type: {}", uri);
 		return info.provider_.getType(uri);
 	}
 
@@ -155,5 +161,30 @@ public class VdbProviderRegistry {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	public List<Map<String, Object>> getAllRepositories() {
+		ArrayList<Map<String, Object>> repositories = new ArrayList<Map<String, Object>>();
+		for (RepositoryInfo info : repoInfos_.values()) {
+			// We exclude all interdroid repositories
+			if (! info.conf_.name_.startsWith("interdroid.vdb")) {
+				HashMap<String, Object> map = new HashMap<String, Object>();
+				map.put(REPOSITORY_ID, info.conf_.name_.hashCode());
+				map.put(REPOSITORY_NAME, info.conf_.name_);
+				repositories.add(map);
+			}
+		}
+		return repositories;
+	}
+
+	public List<String> getAllRepositoryNames() {
+		ArrayList<String> repositories = new ArrayList<String>();
+		for (RepositoryInfo info : repoInfos_.values()) {
+			// We exclude all interdroid repositories
+			if (! info.conf_.name_.startsWith("interdroid.vdb")) {
+				repositories.add(info.conf_.name_);
+			}
+		}
+		return repositories;
 	}
 }

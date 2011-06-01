@@ -19,10 +19,12 @@ public class VdbRepositoryResolver<C> implements RepositoryResolver<C> {
 	private static final Logger logger = LoggerFactory.getLogger(VdbRepositoryResolver.class);
 
 	private final VdbProviderRegistry mProviderRegistry;
+	private final Context mContext;
 
 	public VdbRepositoryResolver(Context context) throws IOException {
 		// This ensures that all repositories are registered
 		mProviderRegistry = new VdbProviderRegistry(context);
+		mContext = context;
 	}
 
 	@Override
@@ -33,7 +35,11 @@ public class VdbRepositoryResolver<C> implements RepositoryResolver<C> {
 		logger.debug("Getting repository for {}", name);
 		// Make sure the provider has been initialized so it is in the RepositoryRegistry properly.
 		mProviderRegistry.initByName(name);
-		result =  VdbRepositoryRegistry.getInstance().getJGitRepository(name);
+		try {
+			result =  VdbRepositoryRegistry.getInstance().getJGitRepository(mContext, name);
+		} catch (IOException e) {
+			throw new RepositoryNotFoundException("Error fetching repository", e);
+		}
 		logger.debug("Found repo: {}", result);
 		return result;
 	}

@@ -7,17 +7,24 @@
  */
 package interdroid.vdb;
 
+import android.content.Intent;
+
 /**
  *
  * @author nick
  *
  */
 public final class Actions {
-	public static final String ACTION_COMMIT = "interdroid.vdb.action.COMMIT";
-	public static final String ACTION_ADD_BRANCH = "interdroid.vdb.action.ADD_BRANCH";
-	public static final String ACTION_EDIT_REMOTE = "interdroid.vdb.action.EDIT_REMOTE";
-	public static final String ACTION_ADD_REMOTE = "interdroid.vdb.action.ADD_REMOTE";
-	public static String ACTION_MANAGE_LOCAL_BRANCHES = "interdroid.vdb.action.MANAGE_LOCAL_BRANCHES";
-	public static final String ACTION_MANAGE_REMOTES = "interdroid.vdb.action.MANAGE_REMOTES";
-	public static String ACTION_MANAGE_REPOSITORY = "interdroid.vdb.action.MANAGE_REPOSITORY";
+	private static final String ACTION_BASE = "interdroid.vdb.action.";
+	public static final String ACTION_COMMIT = ACTION_BASE + "COMMIT";
+	public static final String ACTION_ADD_BRANCH = ACTION_BASE + "ADD_BRANCH";
+	public static final String ACTION_EDIT_REMOTE = ACTION_BASE + "EDIT_REMOTE";
+	public static final String ACTION_ADD_REMOTE = ACTION_BASE + "ADD_REMOTE";
+	public static String ACTION_MANAGE_LOCAL_BRANCHES = ACTION_BASE + "MANAGE_LOCAL_BRANCHES";
+	public static final String ACTION_MANAGE_REMOTES = ACTION_BASE + "MANAGE_REMOTES";
+	public static final String ACTION_ADD_PEER = ACTION_BASE + "ADD_PEER";
+	public static final String ACTION_MANAGE_PEERS = ACTION_BASE + "MANAGE_PEERS";
+	public static String ACTION_MANAGE_REPOSITORY = ACTION_BASE + "MANAGE_REPOSITORY";
+	public static String ACTION_MANAGE_REPOSITORIES = ACTION_BASE + "MANAGE_REPOSITORIES";
+
 }

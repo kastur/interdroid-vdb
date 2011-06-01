@@ -150,6 +150,7 @@ public class SmartSocketsDaemon {
 				new SmartsocketsDaemonService("list-repos", "listrepos") {
 					{
 						setEnabled(true);
+						setOverridable(false);
 					}
 
 					@Override

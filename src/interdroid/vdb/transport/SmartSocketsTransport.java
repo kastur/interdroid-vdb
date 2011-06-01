@@ -1,5 +1,6 @@
 package interdroid.vdb.transport;
 
+import ibis.smartsockets.naming.NameResolver;
 import ibis.smartsockets.util.MalformedAddressException;
 import ibis.smartsockets.virtual.InitializationException;
 import ibis.smartsockets.virtual.VirtualSocket;
@@ -8,11 +9,16 @@ import ibis.smartsockets.virtual.VirtualSocketFactory;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.jgit.JGitText;
@@ -29,18 +35,22 @@ import org.eclipse.jgit.transport.TcpTransport;
 import org.eclipse.jgit.transport.Transport;
 import org.eclipse.jgit.transport.TransportProtocol;
 import org.eclipse.jgit.transport.URIish;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SmartSocketsTransport extends TcpTransport implements PackTransport {
+	private static final Logger logger = LoggerFactory
+	.getLogger(SmartSocketsTransport.class);
 
-	private static final int IBIS_PORT = 2525;
+	private static final int SMARTSOCKETS_PORT = 9090;
 
-	static final TransportProtocol PROTO_GIT = new TransportProtocol() {
+	static final TransportProtocol PROTO_SS = new TransportProtocol() {
 		public String getName() {
-			return "IbisTransport";
+			return "SmartSocketsTransport";
 		}
 
 		public Set<String> getSchemes() {
-			return Collections.singleton("ibis"); //$NON-NLS-1$
+			return Collections.singleton("ss"); //$NON-NLS-1$
 		}
 
 		public Set<URIishField> getRequiredFields() {
@@ -53,18 +63,27 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		}
 
 		public int getDefaultPort() {
-			return IBIS_PORT;
+			return SMARTSOCKETS_PORT;
 		}
 
 		public Transport open(URIish uri, Repository local, String remoteName)
-				throws NotSupportedException {
+		throws NotSupportedException {
 			return new SmartSocketsTransport(local, uri);
 		}
 	};
 
+	public static final String REAL_NAME = "name";
+	public static final String EMAIL = "email";
+
+	// TODO: This should come from a property or something
+	private static final long TIMEOUT = 1000 * 30;
+
 	protected SmartSocketsTransport(Repository local, URIish uri) {
 		super(local, uri);
-		// TODO Auto-generated constructor stub
+	}
+
+	public SmartSocketsTransport(URIish uri) {
+		super(null, uri);
 	}
 
 	@Override
@@ -87,14 +106,12 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 
 	@Override
 	public void close() {
-		// TODO Auto-generated method stub
+		// TODO: Unregister our endpoint with smartsockets
 	}
 
-	VirtualSocket openConnection() throws MalformedAddressException, IOException, InitializationException {
-		final int tms = getTimeout() > 0 ? getTimeout() * 1000 : 0;
-		final int port = uri.getPort() > 0 ? uri.getPort() : IBIS_PORT;
-		VirtualSocketAddress otherSide = new VirtualSocketAddress(uri.getHost() + ":" + port);
-		final VirtualSocket s = VirtualSocketFactory.getDefaultSocketFactory().createClientSocket(otherSide, tms, null);
+	static VirtualSocket openConnection(URIish uri, int timeout) throws MalformedAddressException, IOException, InitializationException {
+		VirtualSocketAddress otherSide = NameResolver.getDefaultResolver().resolve(uri.getHost(), timeout);
+		VirtualSocket s = VirtualSocketFactory.getDefaultSocketFactory().createClientSocket(otherSide, timeout, null);
 		return s;
 	}
 
@@ -107,7 +124,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		cmd.append('\0');
 		cmd.append("host=");
 		cmd.append(uri.getHost());
-		if (uri.getPort() > 0 && uri.getPort() != IBIS_PORT) {
+		if (uri.getPort() > 0 && uri.getPort() != SMARTSOCKETS_PORT) {
 			cmd.append(":");
 			cmd.append(uri.getPort());
 		}
@@ -121,7 +138,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 
 		SmartSocketsFetchConnection() throws MalformedAddressException, IOException, InitializationException {
 			super(SmartSocketsTransport.this);
-			sock = openConnection();
+			sock = openConnection(uri, getTimeout());
 			try {
 				InputStream sIn = sock.getInputStream();
 				OutputStream sOut = sock.getOutputStream();
@@ -160,7 +177,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 
 		SmartSocketsPushConnection() throws MalformedAddressException, IOException, InitializationException {
 			super(SmartSocketsTransport.this);
-			sock = openConnection();
+			sock = openConnection(uri, getTimeout());
 			try {
 				InputStream sIn = sock.getInputStream();
 				OutputStream sOut = sock.getOutputStream();
@@ -192,6 +209,24 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 				}
 			}
 		}
+	}
+
+	public static List<Map<String, ?>> getRepositories(URIish uri) throws MalformedAddressException, IOException, InitializationException {
+		List<Map<String, ?>> repositories = null;
+		VirtualSocket socket = openConnection(uri, 60);
+
+		OutputStream out = new BufferedOutputStream(socket.getOutputStream());
+		out.write("git-list-repos\0".getBytes());
+
+		repositories = new ArrayList<Map<String, ?>>();
+
+		DataInputStream in = new DataInputStream( new BufferedInputStream(socket.getInputStream()) );
+		int count = in.readInt();
+		for (int i = 0; i < count; i++) {
+			@SuppressWarnings("rawtypes")
+			HashMap<String, ?> data = new HashMap();
+		}
+		return repositories;
 	}
 
 }
