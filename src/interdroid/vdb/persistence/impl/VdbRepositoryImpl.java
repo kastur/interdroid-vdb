@@ -12,6 +12,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.eclipse.jgit.dircache.DirCacheCheckout;
+import org.eclipse.jgit.errors.CheckoutConflictException;
 import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.Constants;
@@ -25,6 +27,7 @@ import org.eclipse.jgit.lib.RepositoryBuilder;
 import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.revwalk.filter.RevFilter;
 import org.eclipse.jgit.transport.RemoteConfig;
@@ -110,7 +113,7 @@ public class VdbRepositoryImpl implements VdbRepository {
     	}
     }
 
-    public File checkoutReference(String subdir, String reference) throws IOException
+	public File checkoutReference(String subdir, String reference) throws IOException
     {
     	File checkoutDir = new File(repoDir_, subdir);
     	if (checkoutDir.isDirectory()) { // assume it's already checked out
@@ -121,12 +124,21 @@ public class VdbRepositoryImpl implements VdbRepository {
     		throw new IOException("Could not create checkout directory " + subdir);
     	}
     	Repository repo = getGitRepository(subdir);
-    	repo.create();
-
-//    	Tree tree = getGitRepository().mapTree(reference);
-//    	GitIndex idx = getGitRepository().getIndex();
-//    	idx.readTree(tree);
-//    	idx.checkout(checkoutDir);
+    	Ref ref = repo.getRef(reference);
+    	RevWalk revWalk = new RevWalk(repo);
+		AnyObjectId headId = ref.getObjectId();
+		RevCommit headCommit = headId == null ? null : revWalk
+				.parseCommit(headId);
+		RevCommit newCommit = revWalk.parseCommit(ref.getObjectId());
+		RevTree headTree = headCommit == null ? null : headCommit.getTree();
+		DirCacheCheckout dco = new DirCacheCheckout(repo, headTree,
+				repo.lockDirCache(), newCommit.getTree());
+		dco.setFailOnConflict(true);
+		try {
+			dco.checkout();
+		} catch (CheckoutConflictException e) {
+			throw e;
+		}
 
     	return checkoutDir;
     }
