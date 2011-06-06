@@ -131,6 +131,7 @@ public class VdbProviderRegistry {
 	public String getType(Uri uri) {
 		UriMatch match = EntityUriMatcher.getMatch(uri);
 		RepositoryInfo info = repoInfos_.get(match.repositoryName);
+		String type = null;
 
 		if (info == null) {
 			throw new IllegalArgumentException("Bad URI: unregistered repository. " + uri);
@@ -139,19 +140,27 @@ public class VdbProviderRegistry {
 		if (match.entityName == null) { // points to actual commit/branch
 			switch(match.type) {
 			case REPOSITORY:
-				return BASE_TYPE + "/repository";
+				type = BASE_TYPE + "/repository";
+				break;
 			case COMMIT:
-				return BASE_TYPE + "/commit";
+				type = BASE_TYPE + "/commit";
+				break;
 			case LOCAL_BRANCH:
-				return BASE_TYPE + "/branch.local";
+				type = BASE_TYPE + "/branch.local";
+				break;
 			case REMOTE_BRANCH:
-				return BASE_TYPE + "/branch.remote";
+				type = BASE_TYPE + "/branch.remote";
+				break;
 			case REMOTE:
-				return BASE_TYPE + "/remote";
+				type = BASE_TYPE + "/remote";
+				break;
 			}
+		} else {
+			logger.debug("Asking provider for type: {}", uri);
+			type = info.provider_.getType(uri);
 		}
-		logger.debug("Asking provider for type: {}", uri);
-		return info.provider_.getType(uri);
+		logger.debug("Returning type: {}", type);
+		return type;
 	}
 
 	public void initByName(String name) {
