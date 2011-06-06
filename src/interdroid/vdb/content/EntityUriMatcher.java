@@ -50,6 +50,11 @@ public class EntityUriMatcher {
 		public String repositoryName;
 
 		/**
+		 * True if the match is for a native URI content://provider
+		 */
+		public boolean isNative = false;
+
+		/**
 		 * The type of match.
 		 * Always present in a valid match.
 		 */
@@ -130,6 +135,7 @@ public class EntityUriMatcher {
 		 **/
 		public UriMatch(UriMatch other)
 		{
+			isNative = other.isNative;
 			authority = other.authority;
 			repositoryName = other.repositoryName;
 			type = other.type;
@@ -144,8 +150,10 @@ public class EntityUriMatcher {
 		public Uri buildUri()
 		{
 			Uri.Builder b = new Uri.Builder().scheme("content")
-					.authority(authority)
-					.appendPath(repositoryName);
+					.authority(authority);
+			if (!isNative) {
+					b.appendPath(repositoryName);
+			}
 			if (type == MatchType.REPOSITORY) {
 				return b.build();
 			}
@@ -203,13 +211,12 @@ public class EntityUriMatcher {
 
 		ListIterator<String> pathIterator = uri.getPathSegments().listIterator();
 
-		if (!pathIterator.hasNext()) {
-			throw new IllegalArgumentException("Unknown URI, no repository. " + uri);
-		}
 		if (match.authority.equals(VdbMainContentProvider.AUTHORITY)) {
 			match.repositoryName = pathIterator.next();
+			match.isNative = false;
 		} else {
 			match.repositoryName = match.authority;
+			match.isNative = true;
 		}
 		logger.debug("Match repository: {}", match.repositoryName);
 

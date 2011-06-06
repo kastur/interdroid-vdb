@@ -1,5 +1,7 @@
 package interdroid.vdb.content;
 
+import java.util.List;
+
 import interdroid.vdb.content.EntityUriMatcher.MatchType;
 
 import android.net.Uri;
@@ -35,5 +37,18 @@ public class EntityUriBuilder {
 	{
 		return Uri.withAppendedPath(repositoryUri(authority, repoName),
 				MatchType.COMMIT.shortString_ + "/" + sha1);
+	}
+
+	public static Uri toNative(Uri uri) {
+		Uri.Builder builder = uri.buildUpon();
+		List<String> path = uri.getPathSegments();
+		String pathString = "";
+		for (int i = 1; i < path.size(); i++) {
+			pathString += "/" + path.get(i);
+		}
+		builder.authority(path.get(0));
+		builder.path(pathString);
+
+		return builder.build();
 	}
 }
