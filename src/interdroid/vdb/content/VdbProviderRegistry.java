@@ -6,7 +6,6 @@ import interdroid.vdb.content.VdbConfig.RepositoryConf;
 import interdroid.vdb.content.avro.AvroContentProvider;
 import interdroid.vdb.content.avro.AvroProviderRegistry;
 import interdroid.vdb.persistence.api.VdbInitializer;
-import interdroid.vdb.persistence.api.VdbRepository;
 import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 
 import java.io.IOException;
