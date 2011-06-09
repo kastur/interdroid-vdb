@@ -44,9 +44,9 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 
 	private static final int SMARTSOCKETS_PORT = 9090;
 
-	static final TransportProtocol PROTO_SS = new TransportProtocol() {
+	public static final TransportProtocol PROTO = new TransportProtocol() {
 		public String getName() {
-			return "SmartSocketsTransport";
+			return "Smart Sockets";
 		}
 
 		public Set<String> getSchemes() {
@@ -54,7 +54,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		}
 
 		public Set<URIishField> getRequiredFields() {
-			return Collections.unmodifiableSet(EnumSet.of(URIishField.HOST,
+			return Collections.unmodifiableSet(EnumSet.of(URIishField.HOST, URIishField.USER,
 					URIishField.PATH));
 		}
 
@@ -110,7 +110,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 	}
 
 	static VirtualSocket openConnection(URIish uri, int timeout) throws MalformedAddressException, IOException, InitializationException {
-		VirtualSocketAddress otherSide = NameResolver.getDefaultResolver().resolve(uri.getHost(), timeout);
+		VirtualSocketAddress otherSide = NameResolver.getDefaultResolver().resolve(uri.getUser() + "@" + uri.getHost(), timeout);
 		VirtualSocket s = VirtualSocketFactory.getDefaultSocketFactory().createClientSocket(otherSide, timeout, null);
 		return s;
 	}
@@ -123,6 +123,8 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		cmd.append(uri.getPath());
 		cmd.append('\0');
 		cmd.append("host=");
+		cmd.append(uri.getHost());
+		cmd.append("user=");
 		cmd.append(uri.getHost());
 		if (uri.getPort() > 0 && uri.getPort() != SMARTSOCKETS_PORT) {
 			cmd.append(":");
@@ -223,6 +225,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		DataInputStream in = new DataInputStream( new BufferedInputStream(socket.getInputStream()) );
 		int count = in.readInt();
 		for (int i = 0; i < count; i++) {
+			// TODO: Need to finish this
 			@SuppressWarnings("rawtypes")
 			HashMap<String, ?> data = new HashMap();
 		}

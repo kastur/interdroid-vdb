@@ -4,6 +4,7 @@ import interdroid.vdb.persistence.api.RemoteInfo;
 import interdroid.vdb.persistence.api.VdbCheckout;
 import interdroid.vdb.persistence.api.VdbInitializer;
 import interdroid.vdb.persistence.api.VdbRepository;
+import interdroid.vdb.transport.SmartSocketsTransport;
 
 import java.io.File;
 import java.io.IOException;
@@ -357,6 +358,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 				throw new RuntimeException("The remote is not configured.");
 			}
 			RemoteConfig cfg = new RemoteConfig(getGitRepository().getConfig(), remoteName);
+			Transport.register(SmartSocketsTransport.PROTO);
 			return Transport.open(getGitRepository(), cfg);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
