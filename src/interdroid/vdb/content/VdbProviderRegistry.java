@@ -6,6 +6,7 @@ import interdroid.vdb.content.VdbConfig.RepositoryConf;
 import interdroid.vdb.content.avro.AvroContentProvider;
 import interdroid.vdb.content.avro.AvroProviderRegistry;
 import interdroid.vdb.persistence.api.VdbInitializer;
+import interdroid.vdb.persistence.api.VdbRepository;
 import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 
 import java.io.IOException;
@@ -31,6 +32,7 @@ public class VdbProviderRegistry {
 	private static final Map<String,RepositoryInfo> repoInfos_ = new HashMap<String, RepositoryInfo>();
 
 	public static final String REPOSITORY_NAME = "repoName";
+	public static final String REPOSITORY_IS_PEER = "isPeer";
 	private static final String REPOSITORY_ID = "id_";
 
 	private static class RepositoryInfo {
@@ -194,5 +196,30 @@ public class VdbProviderRegistry {
 			}
 		}
 		return repositories;
+	}
+
+	public List<Map<String, Object>> getAllRepositories(String email) throws IOException {
+		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+
+		for (RepositoryInfo info : repoInfos_.values()) {
+			// We exclude all interdroid repositories
+			if (! info.conf_.name_.startsWith("interdroid.vdb")) {
+				Map<String, Object> map = new HashMap<String, Object>();
+				map.put(REPOSITORY_NAME, info.conf_.name_);
+				// Make sure it is initialized
+				initByName(info.conf_.name_);
+				// Pull the repo out
+				VdbRepository repo = VdbRepositoryRegistry.getInstance().getRepository(context_, info.conf_.name_);
+				// Is it a peer?
+				if (null != repo.getRemoteInfo(email)) {
+					map.put(REPOSITORY_IS_PEER, true);
+				} else {
+					map.put(REPOSITORY_IS_PEER, false);
+				}
+				result.add(map);
+			}
+		}
+
+		return result;
 	}
 }
