@@ -157,6 +157,8 @@ public class VdbProviderRegistry {
 				break;
 			}
 		} else {
+			// Make sure provider is initialized
+			initByName(info.conf_.name_);
 			logger.debug("Asking provider for type: {}", uri);
 			type = info.provider_.getType(uri);
 		}
