@@ -103,12 +103,13 @@ public class AvroEntityInfo extends EntityInfo {
 			}
 			case UNION:
 			{
-				// Unions get three fields, one to hold the type the value has, one to hold the name if it is a named type and one for the value.
+				// Unions get three fields, one to hold the type the value has, one to hold the name if it is a named type and one for the value
 				// We are abusing SQLite manifest typing on the value column with good reason
 				FieldInfo typeField = new AvroFieldInfo(new Field(field.name() + AvroContentProvider.TYPE_COLUMN_NAME, Schema.create(Schema.Type.STRING), null, null), true);
 				fields.put(typeField.fieldName, typeField);
 				FieldInfo typeNameField = new AvroFieldInfo(new Field(field.name() + AvroContentProvider.TYPE_NAME_COLUMN_NAME, Schema.create(Schema.Type.STRING), null, null), true);
 				fields.put(typeNameField.fieldName, typeNameField);
+
 				if (logger.isDebugEnabled())
 					logger.debug("Adding union field: " + field.name());
 
@@ -126,7 +127,11 @@ public class AvroEntityInfo extends EntityInfo {
 					}
 				}
 
-				// Intentional fall through to construct the value field.
+				FieldInfo fieldInfo = new AvroFieldInfo(field, false);
+				if (logger.isDebugEnabled())
+					logger.debug("Adding field: " + fieldInfo.fieldName);
+				fields.put(fieldInfo.fieldName, fieldInfo);
+				break;
 			}
 			case FIXED:
 			case FLOAT:
