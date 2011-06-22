@@ -1,48 +1,6 @@
-/*
- * Copyright (C) 2008-2009, Google Inc.
- * and other copyright owners as documented in the project's IP log.
- *
- * This program and the accompanying materials are made available
- * under the terms of the Eclipse Distribution License v1.0 which
- * accompanies this distribution, is reproduced below, and is
- * available at http://www.eclipse.org/org/documents/edl-v10.php
- *
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or
- * without modification, are permitted provided that the following
- * conditions are met:
- *
- * - Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
- *
- * - Redistributions in binary form must reproduce the above
- *   copyright notice, this list of conditions and the following
- *   disclaimer in the documentation and/or other materials provided
- *   with the distribution.
- *
- * - Neither the name of the Eclipse Foundation, Inc. nor the
- *   names of its contributors may be used to endorse or promote
- *   products derived from this software without specific prior
- *   written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
- * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
 package interdroid.vdb.transport;
 
+import ibis.smartsockets.SmartSocketsProperties;
 import ibis.smartsockets.virtual.InitializationException;
 import ibis.smartsockets.virtual.VirtualServerSocket;
 import ibis.smartsockets.virtual.VirtualSocket;
@@ -54,6 +12,9 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketAddress;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 
 import org.eclipse.jgit.JGitText;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
@@ -80,25 +41,35 @@ public class SmartSocketsDaemon {
 
 	private static final int BACKLOG = 5;
 
-	private VirtualSocketAddress myAddress;
+	private VirtualSocketAddress mLocalAddress;
 
-	private final SmartsocketsDaemonService[] services;
+	private final SmartsocketsDaemonService[] mServices;
 
-	private final ThreadGroup processors;
+	private final ThreadGroup mProcessors;
 
-	private boolean run;
+	private boolean mRun;
 
-	private Thread acceptThread;
+	private Thread mAcceptThread;
 
-	private int timeout;
+	private int mTimeout;
 
-	private PackConfig packConfig;
+	private PackConfig mPackConfig;
 
-	private volatile RepositoryResolver<SmartSocketsDaemonClient> repositoryResolver;
+	private volatile RepositoryResolver<SmartSocketsDaemonClient> mRepositoryResolver;
 
-	private volatile UploadPackFactory<SmartSocketsDaemonClient> uploadPackFactory;
+	private volatile UploadPackFactory<SmartSocketsDaemonClient> mUploadPackFactory;
 
-	private volatile ReceivePackFactory<SmartSocketsDaemonClient> receivePackFactory;
+	private volatile ReceivePackFactory<SmartSocketsDaemonClient> mReceivePackFactory;
+
+	private VirtualServerSocket mListenSock;
+
+	private VirtualSocketFactory mSocketFactory;
+
+	private static Properties sSocketProperties = new Properties();
+
+	static {
+		sSocketProperties.put(SmartSocketsProperties.DIRECT_CACHE_IP, "false");
+	}
 
 	/** Configure a daemon to listen on any available network port. */
 	public SmartSocketsDaemon() {
@@ -114,12 +85,12 @@ public class SmartSocketsDaemon {
 	 */
 	@SuppressWarnings("unchecked")
 	public SmartSocketsDaemon(final VirtualSocketAddress addr) {
-		myAddress = addr;
-		processors = new ThreadGroup("Git-Daemon");
+		mLocalAddress = addr;
+		mProcessors = new ThreadGroup("Git-Daemon");
 
-		repositoryResolver = (RepositoryResolver<SmartSocketsDaemonClient>) RepositoryResolver.NONE;
+		mRepositoryResolver = (RepositoryResolver<SmartSocketsDaemonClient>) RepositoryResolver.NONE;
 
-		uploadPackFactory = new UploadPackFactory<SmartSocketsDaemonClient>() {
+		mUploadPackFactory = new UploadPackFactory<SmartSocketsDaemonClient>() {
 			public UploadPack create(SmartSocketsDaemonClient req, Repository db)
 					throws ServiceNotEnabledException,
 					ServiceNotAuthorizedException {
@@ -130,7 +101,7 @@ public class SmartSocketsDaemon {
 			}
 		};
 
-		receivePackFactory = new ReceivePackFactory<SmartSocketsDaemonClient>() {
+		mReceivePackFactory = new ReceivePackFactory<SmartSocketsDaemonClient>() {
 			public ReceivePack create(SmartSocketsDaemonClient req, Repository db)
 					throws ServiceNotEnabledException,
 					ServiceNotAuthorizedException {
@@ -146,7 +117,7 @@ public class SmartSocketsDaemon {
 			}
 		};
 
-		services = new SmartsocketsDaemonService[] {
+		mServices = new SmartsocketsDaemonService[] {
 				new SmartsocketsDaemonService("list-repos", "listrepos") {
 					{
 						setEnabled(true);
@@ -159,6 +130,7 @@ public class SmartSocketsDaemon {
 							ServiceNotEnabledException,
 							ServiceNotAuthorizedException {
 						logger.debug("List Repos Called");
+						throw new RuntimeException("Not yet implemented");
 					}
 				},
 				new SmartsocketsDaemonService("upload-pack", "uploadpack") {
@@ -171,7 +143,7 @@ public class SmartSocketsDaemon {
 							final Repository db) throws IOException,
 							ServiceNotEnabledException,
 							ServiceNotAuthorizedException {
-						UploadPack up = uploadPackFactory.create(dc, db);
+						UploadPack up = mUploadPackFactory.create(dc, db);
 						InputStream in = dc.getInputStream();
 						OutputStream out = dc.getOutputStream();
 						up.upload(in, out, null);
@@ -186,7 +158,7 @@ public class SmartSocketsDaemon {
 							final Repository db) throws IOException,
 							ServiceNotEnabledException,
 							ServiceNotAuthorizedException {
-						ReceivePack rp = receivePackFactory.create(dc, db);
+						ReceivePack rp = mReceivePackFactory.create(dc, db);
 						InputStream in = dc.getInputStream();
 						OutputStream out = dc.getOutputStream();
 						rp.receive(in, out, null);
@@ -196,7 +168,7 @@ public class SmartSocketsDaemon {
 
 	/** @return the address connections are received on. */
 	public synchronized VirtualSocketAddress getAddress() {
-		return myAddress;
+		return mLocalAddress;
 	}
 
 	/**
@@ -212,7 +184,7 @@ public class SmartSocketsDaemon {
 		logger.debug("Looking for service: {}", name);
 		if (!name.startsWith("git-"))
 			name = "git-" + name;
-		for (final SmartsocketsDaemonService s : services) {
+		for (final SmartsocketsDaemonService s : mServices) {
 			if (s.getCommandName().equals(name))
 				return s;
 		}
@@ -221,7 +193,7 @@ public class SmartSocketsDaemon {
 
 	/** @return timeout (in seconds) before aborting an IO operation. */
 	public int getTimeout() {
-		return timeout;
+		return mTimeout;
 	}
 
 	/**
@@ -233,12 +205,12 @@ public class SmartSocketsDaemon {
 	 *            connected client.
 	 */
 	public void setTimeout(final int seconds) {
-		timeout = seconds;
+		mTimeout = seconds;
 	}
 
 	/** @return configuration controlling packing, may be null. */
 	public PackConfig getPackConfig() {
-		return packConfig;
+		return mPackConfig;
 	}
 
 	/**
@@ -249,7 +221,7 @@ public class SmartSocketsDaemon {
 	 *            source repository's settings will be used.
 	 */
 	public void setPackConfig(PackConfig pc) {
-		this.packConfig = pc;
+		this.mPackConfig = pc;
 	}
 
 	/**
@@ -259,7 +231,7 @@ public class SmartSocketsDaemon {
 	 *            the resolver instance.
 	 */
 	public void setRepositoryResolver(RepositoryResolver<SmartSocketsDaemonClient> resolver) {
-		repositoryResolver = resolver;
+		mRepositoryResolver = resolver;
 	}
 
 	/**
@@ -271,9 +243,9 @@ public class SmartSocketsDaemon {
 	@SuppressWarnings("unchecked")
 	public void setUploadPackFactory(UploadPackFactory<SmartSocketsDaemonClient> factory) {
 		if (factory != null)
-			uploadPackFactory = factory;
+			mUploadPackFactory = factory;
 		else
-			uploadPackFactory = (UploadPackFactory<SmartSocketsDaemonClient>) UploadPackFactory.DISABLED;
+			mUploadPackFactory = (UploadPackFactory<SmartSocketsDaemonClient>) UploadPackFactory.DISABLED;
 	}
 
 	/**
@@ -285,9 +257,9 @@ public class SmartSocketsDaemon {
 	@SuppressWarnings("unchecked")
 	public void setReceivePackFactory(ReceivePackFactory<SmartSocketsDaemonClient> factory) {
 		if (factory != null)
-			receivePackFactory = factory;
+			mReceivePackFactory = factory;
 		else
-			receivePackFactory = (ReceivePackFactory<SmartSocketsDaemonClient>) ReceivePackFactory.DISABLED;
+			mReceivePackFactory = (ReceivePackFactory<SmartSocketsDaemonClient>) ReceivePackFactory.DISABLED;
 	}
 
 	/**
@@ -299,22 +271,23 @@ public class SmartSocketsDaemon {
 	 *             the daemon is already running.
 	 */
 	public synchronized void start() throws IOException, InitializationException {
-		if (acceptThread != null)
+		if (mAcceptThread != null)
 			throw new IllegalStateException(JGitText.get().daemonAlreadyRunning);
 
-		final VirtualServerSocket listenSock = VirtualSocketFactory.getDefaultSocketFactory().createServerSocket(DEFAULT_PORT, BACKLOG, null);
-		if (listenSock == null) {
+		mSocketFactory = VirtualSocketFactory.createSocketFactory(sSocketProperties, true);
+		mListenSock = mSocketFactory.createServerSocket(DEFAULT_PORT, BACKLOG, null);
+		if (mListenSock == null) {
 			throw new InitializationException("Unable to construct server socket.");
 		}
-		myAddress = listenSock.getLocalSocketAddress();
+		mLocalAddress = mListenSock.getLocalSocketAddress();
 
-		run = true;
-		acceptThread = new Thread(processors, "Git-Daemon-Accept") {
+		mRun = true;
+		mAcceptThread = new Thread(mProcessors, "Git-Daemon-Accept") {
 			public void run() {
 				while (isRunning()) {
 					try {
 						logger.debug("Waiting for new connection...");
-						startClient(listenSock.accept());
+						startClient(mListenSock.accept());
 						logger.debug("Accepted connection");
 					} catch (InterruptedIOException e) {
 						// Test again to see if we should keep accepting.
@@ -322,31 +295,46 @@ public class SmartSocketsDaemon {
 						break;
 					}
 				}
-
+				logger.debug("No longer running.");
 				try {
-					listenSock.close();
+					logger.debug("Closing listen socket.");
+					mListenSock.close();
+					logger.debug("Listen socket closed.");
 				} catch (IOException err) {
 					//
-				} finally {
-					synchronized (SmartSocketsDaemon.this) {
-						acceptThread = null;
-					}
 				}
 			}
 		};
-		acceptThread.start();
+		mAcceptThread.start();
 	}
 
 	/** @return true if this daemon is receiving connections. */
 	public synchronized boolean isRunning() {
-		return run;
+		return mRun;
 	}
 
 	/** Stop this daemon. */
-	public synchronized void stop() {
-		if (acceptThread != null) {
-			run = false;
-			acceptThread.interrupt();
+	public void stop() {
+		if (mAcceptThread != null) {
+			synchronized (this) {
+				mRun = false;
+				try {
+					logger.debug("Closing accept socket.");
+					mListenSock.close();
+					mAcceptThread.interrupt();
+					//mSocketFactory.end();
+				} catch (Exception e1) {
+					logger.error("Exception while closing accept socket.", e1);
+				}
+			}
+			logger.debug("Joining accept thread.");
+			try {
+				mAcceptThread.join();
+			} catch (InterruptedException e) {
+				logger.error("Error while joining accept thread.", e);
+			}
+			logger.debug("Joined accept thread.");
+			mAcceptThread = null;
 		}
 	}
 
@@ -357,11 +345,12 @@ public class SmartSocketsDaemon {
 		final SocketAddress peer = virtualSocket.getRemoteSocketAddress();
 		dc.setRemoteAddress(peer);
 
-		new Thread(processors, "Git-Daemon-Client " + peer.toString()) {
+		new Thread(mProcessors, "Git-Daemon-Client " + peer.toString()) {
 			public void run() {
 				try {
 					logger.debug("Executing client request.");
 					dc.execute(virtualSocket);
+					logger.debug("Client request handled.");
 				} catch (RepositoryNotFoundException e) {
 					// Ignored. Client cannot use this repository.
 				} catch (ServiceNotEnabledException e) {
@@ -372,6 +361,7 @@ public class SmartSocketsDaemon {
 					// Ignore unexpected IO exceptions from clients
 					e.printStackTrace();
 				} finally {
+					logger.debug("Closing streams");
 					try {
 						virtualSocket.getInputStream().close();
 					} catch (IOException e) {
@@ -382,14 +372,22 @@ public class SmartSocketsDaemon {
 					} catch (IOException e) {
 						// Ignore close exceptions
 					}
+					logger.debug("Closing socket.");
+					try {
+						virtualSocket.close();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
+				logger.debug("Thread is complete.");
 			}
 		}.start();
 		logger.debug("Launched client thread.");
 	}
 
 	synchronized SmartsocketsDaemonService matchService(final String cmd) {
-		for (final SmartsocketsDaemonService d : services) {
+		for (final SmartsocketsDaemonService d : mServices) {
 			if (d.handles(cmd))
 				return d;
 		}
@@ -408,7 +406,7 @@ public class SmartSocketsDaemon {
 			return null;
 
 		try {
-			return repositoryResolver.open(client, name.substring(1));
+			return mRepositoryResolver.open(client, name.substring(1));
 		} catch (RepositoryNotFoundException e) {
 			// null signals it "wasn't found", which is all that is suitable
 			// for the remote client to know.

@@ -23,6 +23,7 @@ public class AvroContentProvider extends GenericContentProvider {
 	public static final String ARRAY_TABLE_INFIX = GenericContentProvider.SEPARATOR;
 	public static final String MAP_TABLE_INFIX = GenericContentProvider.SEPARATOR;
 	public static final String TYPE_NAME_COLUMN_NAME = TYPE_COLUMN_NAME + GenericContentProvider.SEPARATOR + "name";
+	public static final String TYPE_URI_COLUMN_NAME = TYPE_COLUMN_NAME + GenericContentProvider.SEPARATOR + "uri";
 
 	public AvroContentProvider(Schema schema) {
 		super(schema.getNamespace(), makeMetadata(schema));
