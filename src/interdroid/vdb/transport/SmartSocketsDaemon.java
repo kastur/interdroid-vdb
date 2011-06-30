@@ -12,8 +12,6 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketAddress;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 
 import org.eclipse.jgit.JGitText;
@@ -290,7 +288,7 @@ public class SmartSocketsDaemon {
 						startClient(mListenSock.accept());
 						logger.debug("Accepted connection");
 					} catch (InterruptedIOException e) {
-						// Test again to see if we should keep accepting.
+						logger.warn("Interrupted while accepting.", e);
 					} catch (IOException e) {
 						break;
 					}
@@ -301,7 +299,7 @@ public class SmartSocketsDaemon {
 					mListenSock.close();
 					logger.debug("Listen socket closed.");
 				} catch (IOException err) {
-					//
+					logger.error("Exception while closing socket: ", err);
 				}
 			}
 		};
@@ -351,15 +349,8 @@ public class SmartSocketsDaemon {
 					logger.debug("Executing client request.");
 					dc.execute(virtualSocket);
 					logger.debug("Client request handled.");
-				} catch (RepositoryNotFoundException e) {
-					// Ignored. Client cannot use this repository.
-				} catch (ServiceNotEnabledException e) {
-					// Ignored. Client cannot use this repository.
-				} catch (ServiceNotAuthorizedException e) {
-					// Ignored. Client cannot use this repository.
-				} catch (IOException e) {
-					// Ignore unexpected IO exceptions from clients
-					e.printStackTrace();
+				} catch (Exception e) {
+					logger.warn("Exception while servicing client ignored.", e);
 				} finally {
 					logger.debug("Closing streams");
 					try {
@@ -402,7 +393,7 @@ public class SmartSocketsDaemon {
 
 		// git://thishost/path should always be name="/path" here
 		//
-		if (!name.startsWith("/"))
+		if (name.charAt(0) != '/')
 			return null;
 
 		try {

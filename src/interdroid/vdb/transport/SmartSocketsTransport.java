@@ -127,7 +127,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		cmd.append("user=");
 		cmd.append(uri.getHost());
 		if (uri.getPort() > 0 && uri.getPort() != SMARTSOCKETS_PORT) {
-			cmd.append(":");
+			cmd.append(':');
 			cmd.append(uri.getPort());
 		}
 		cmd.append('\0');
@@ -166,7 +166,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 				try {
 					sock.close();
 				} catch (IOException err) {
-					// Ignore errors during close.
+					logger.warn("Exception while closing.", err);
 				} finally {
 					sock = null;
 				}
@@ -205,7 +205,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 				try {
 					sock.close();
 				} catch (IOException err) {
-					// Ignore errors during close.
+					logger.warn("Exception while closing.", err);
 				} finally {
 					sock = null;
 				}

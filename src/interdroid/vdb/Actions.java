@@ -7,8 +7,6 @@
  */
 package interdroid.vdb;
 
-import android.content.Intent;
-
 /**
  *
  * @author nick

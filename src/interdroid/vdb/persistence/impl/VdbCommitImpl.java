@@ -18,7 +18,7 @@ public class VdbCommitImpl extends VdbCheckoutImpl {
 	}
 
 	@Override
-	public void commit(String authorName, String authorEmail, String msg)
+	public synchronized void commit(String authorName, String authorEmail, String msg)
 	throws IOException
 	{
 		throw new RuntimeException("Commit checkouts are readonly");

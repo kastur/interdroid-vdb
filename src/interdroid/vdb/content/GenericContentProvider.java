@@ -102,7 +102,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 
 			StringBuilder createSql = new StringBuilder("CREATE TABLE ");
 			createSql.append(escapeName(namespace_, entity));
-			createSql.append("(");
+			createSql.append('(');
 			for (FieldInfo field : entity.getFields()) {
 				switch (field.dbType) {
 				case ONE_TO_MANY_INT:

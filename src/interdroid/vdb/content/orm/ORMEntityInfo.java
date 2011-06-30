@@ -28,7 +28,7 @@ public class ORMEntityInfo extends EntityInfo {
 	public ORMEntityInfo(Class<?> clazz) {
 		this.clazz = clazz;
 
-		DbEntity entityOptions = (DbEntity) clazz.getAnnotation(DbEntity.class);
+		DbEntity entityOptions = clazz.getAnnotation(DbEntity.class);
 		if (entityOptions == null) {
 			throw new IllegalArgumentException("The class is not annotated with EntityOptions.");
 		}

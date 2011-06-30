@@ -88,7 +88,9 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 			if (c != null) {
 				try {
 					c.close();
-				} catch (Exception e) {};
+				} catch (Exception e) {
+					logger.warn("Exception while closing cursor: ", e);
+				}
 			}
 		}
 
