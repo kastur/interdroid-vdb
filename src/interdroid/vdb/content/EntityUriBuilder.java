@@ -42,12 +42,13 @@ public class EntityUriBuilder {
 	public static Uri toNative(Uri uri) {
 		Uri.Builder builder = uri.buildUpon();
 		List<String> path = uri.getPathSegments();
-		String pathString = "";
+		StringBuffer pathString = new StringBuffer();
 		for (int i = 1; i < path.size(); i++) {
-			pathString += "/" + path.get(i);
+			pathString.append("/");
+			pathString.append(path.get(i));
 		}
 		builder.authority(path.get(0));
-		builder.path(pathString);
+		builder.path(pathString.toString());
 
 		return builder.build();
 	}

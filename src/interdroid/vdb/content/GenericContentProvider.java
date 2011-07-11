@@ -121,13 +121,13 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 						firstField = false;
 					}
 					createSql.append(DatabaseUtils.sqlEscapeString(field.fieldName));
-					createSql.append(" ");
+					createSql.append(' ');
 					createSql.append(DatabaseFieldType.INTEGER);
 					createSql.append(" REFERENCES ");
 					createSql.append(escapeName(namespace_, field.targetEntity));
-					createSql.append("(");
+					createSql.append('(');
 					createSql.append(field.targetField.fieldName);
-					createSql.append(")");
+					createSql.append(')');
 					createSql.append(" DEFERRABLE");
 					break;
 				default:
@@ -137,12 +137,12 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 						firstField = false;
 					}
 					createSql.append(DatabaseUtils.sqlEscapeString(field.fieldName));
-					createSql.append(" ");
+					createSql.append(' ');
 					createSql.append(field.dbTypeName());
 					if (field.targetEntity != null) {
 						createSql.append(" REFERENCES ");
 						createSql.append(escapeName(namespace_, field.targetEntity));
-						createSql.append("(");
+						createSql.append('(');
 						createSql.append(field.targetField.fieldName);
 						createSql.append(") DEFERRABLE");
 					}
@@ -162,7 +162,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 				}
 				createSql.append(field.fieldName);
 			}
-			createSql.append(")");
+			createSql.append(')');
 
 			// Close the table
 			createSql.append(")");
@@ -450,7 +450,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		ContentValues cleanValues = new ContentValues();
 		for (Entry<String, Object> val : values.valueSet()) {
 			Object value = val.getValue();
-			String cleanName = val.getKey().startsWith("'") ? val.getKey() : "'" + val.getKey() + "'";
+			String cleanName = val.getKey().charAt(0) == '\'' ? val.getKey() : "'" + val.getKey() + "'";
 			// This really sucks. There is no generic put an object....
 			if (value == null) {
 				cleanValues.putNull(cleanName);

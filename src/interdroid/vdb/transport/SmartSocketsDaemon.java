@@ -312,7 +312,7 @@ public class SmartSocketsDaemon {
 	}
 
 	/** Stop this daemon. */
-	public void stop() {
+	public synchronized void stop() {
 		if (mAcceptThread != null) {
 			synchronized (this) {
 				mRun = false;
@@ -356,12 +356,12 @@ public class SmartSocketsDaemon {
 					try {
 						virtualSocket.getInputStream().close();
 					} catch (IOException e) {
-						// Ignore close exceptions
+						logger.warn("Exception while closing input stream: ", e);
 					}
 					try {
 						virtualSocket.getOutputStream().close();
 					} catch (IOException e) {
-						// Ignore close exceptions
+						logger.warn("Exception while closing output stream: ", e);
 					}
 					logger.debug("Closing socket.");
 					try {

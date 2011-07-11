@@ -217,17 +217,27 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		List<Map<String, ?>> repositories = null;
 		VirtualSocket socket = openConnection(uri, 60);
 
-		OutputStream out = new BufferedOutputStream(socket.getOutputStream());
-		out.write("git-list-repos\0".getBytes());
+		OutputStream out = null;
+		DataInputStream in = null;
+		try {
+			out = new BufferedOutputStream(socket.getOutputStream());
+			out.write("git-list-repos\0".getBytes());
+			repositories = new ArrayList<Map<String, ?>>();
 
-		repositories = new ArrayList<Map<String, ?>>();
-
-		DataInputStream in = new DataInputStream( new BufferedInputStream(socket.getInputStream()) );
-		int count = in.readInt();
-		for (int i = 0; i < count; i++) {
-			// TODO: Need to finish this
-			@SuppressWarnings("rawtypes")
-			HashMap<String, ?> data = new HashMap();
+			in = new DataInputStream( new BufferedInputStream(socket.getInputStream()) );
+			int count = in.readInt();
+			for (int i = 0; i < count; i++) {
+				// TODO: Need to finish this
+				@SuppressWarnings("rawtypes")
+				HashMap<String, ?> data = new HashMap();
+			}
+		} finally {
+			if(in != null) {
+				in.close();
+			}
+			if (out != null) {
+				out.close();
+			}
 		}
 		return repositories;
 	}

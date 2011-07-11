@@ -120,8 +120,7 @@ public class VdbRepositoryImpl implements VdbRepository {
     	if (checkoutDir.isDirectory()) { // assume it's already checked out
     		return checkoutDir;
     	}
-    	checkoutDir.mkdir();
-    	if (!checkoutDir.isDirectory()) {
+    	if (!checkoutDir.mkdir() || !checkoutDir.isDirectory()) {
     		throw new IOException("Could not create checkout directory " + subdir);
     	}
     	Repository repo = getGitRepository(subdir);

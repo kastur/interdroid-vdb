@@ -180,7 +180,9 @@ public class VdbCheckoutImpl implements VdbCheckout {
 		if (logger.isDebugEnabled())
 			logger.debug("Creating master for: " + parentRepo.getName());
 		File masterDir = new File(parentRepo.getRepositoryDir(), Constants.MASTER);
-		masterDir.mkdirs();
+		if (!masterDir.mkdirs()) {
+			throw new IOException("Unable to create directory: " + masterDir.getCanonicalPath());
+		}
 
         SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(new File(masterDir, SQLITEDB), null);
         initializer.onCreate(db);
@@ -195,7 +197,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 		fos.close();
 
 		VdbCheckoutImpl branch = new VdbCheckoutImpl(parentRepo, Constants.MASTER);
-		branch.db_ = db;
+		branch.setDb(db);
 
 		try {
 			branch.commit("Versioning Daemon", "vd@localhost", "Initial schema-only version.");
@@ -206,6 +208,10 @@ public class VdbCheckoutImpl implements VdbCheckout {
 
 		return branch;
     }
+
+	private synchronized void setDb(SQLiteDatabase db) {
+		db_ = db;
+	}
 
 	private synchronized void openDatabase()
 	{
@@ -256,7 +262,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 				return db_;
 			}
 		} catch (InterruptedException e) {
-			// ignore
+			logger.warn("Ignoring interupted exception: ", e);
 		}
 		throw new RuntimeException("Timeout waiting for the locked database.");
 	}
@@ -302,7 +308,9 @@ public class VdbCheckoutImpl implements VdbCheckout {
 	{
 		File infoFile = new File(checkoutDir_, MERGEINFO);
 		if (mergeInfo_ == null) {
-			infoFile.delete();
+			if(!infoFile.delete()) {
+				logger.warn("Error deleting: {}", infoFile);
+			}
 		} else {
 			try {
 				FileOutputStream fos = new FileOutputStream(infoFile);

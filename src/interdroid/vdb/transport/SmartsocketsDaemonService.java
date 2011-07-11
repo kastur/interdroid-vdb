@@ -146,7 +146,9 @@ public abstract class SmartsocketsDaemonService {
 			if (isEnabledFor(db))
 				execute(client, db);
 		} finally {
-			db.close();
+			if (db != null) {
+				db.close();
+			}
 		}
 	}
 
