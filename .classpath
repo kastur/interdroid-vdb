@@ -2,7 +2,6 @@
 <classpath>
 	<classpathentry excluding="interdroid/vdb/persistence/ui/TestActivity.java" kind="src" path="src"/>
 	<classpathentry kind="src" path="gen"/>
-	<classpathentry kind="lib" path="external/jsch-0.1.42.jar"/>
 	<classpathentry kind="lib" path="external/slf4j-api-1.5.5.jar"/>
 	<classpathentry kind="lib" path="external/ibis-util-2.2.jar"/>
 	<classpathentry kind="con" path="com.android.ide.eclipse.adt.ANDROID_FRAMEWORK"/>
@@ -18,5 +17,6 @@
 	<classpathentry excluding="ibis/smartsockets/viz/" kind="src" path="smartsockets_src"/>
 	<classpathentry kind="src" path="org.eclipse.jgit_src"/>
 	<classpathentry kind="src" path="org.eclipse.jgit_resources"/>
+	<classpathentry kind="lib" path="external/jsch-0.1.44-1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
