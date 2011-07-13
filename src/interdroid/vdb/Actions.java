@@ -62,4 +62,13 @@ public final class Actions {
     public static final String ACTION_MANAGE_REPOSITORIES =
             ACTION_BASE + "MANAGE_REPOSITORIES";
 
+	public static final String ACTION_MANAGE_PEER_INFO =
+			ACTION_BASE + "MANAGE_PEER_INFO";
+
+	public static final String ACTION_MANAGE_LOCAL_SHARING =
+			ACTION_BASE + "MANAGE_LOCAL_SHARING";
+
+	public static final String ACTION_MANAGE_REMOTE_SHARING =
+			ACTION_BASE + "MANAGE_REMOTE_SHARING";
+
 }

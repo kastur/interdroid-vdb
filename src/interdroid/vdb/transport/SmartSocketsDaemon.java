@@ -6,12 +6,18 @@ import ibis.smartsockets.virtual.VirtualServerSocket;
 import ibis.smartsockets.virtual.VirtualSocket;
 import ibis.smartsockets.virtual.VirtualSocketAddress;
 import ibis.smartsockets.virtual.VirtualSocketFactory;
+import interdroid.vdb.content.VdbProviderRegistry;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketAddress;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import org.eclipse.jgit.JGitText;
@@ -128,7 +134,45 @@ public class SmartSocketsDaemon {
 							ServiceNotEnabledException,
 							ServiceNotAuthorizedException {
 						logger.debug("List Repos Called");
-						throw new RuntimeException("Not yet implemented");
+						DataInputStream in = null;
+						DataOutputStream out = null;
+						try {
+
+							in = new DataInputStream(dc.getInputStream());
+							String email = in.readLine();
+							List<Map<String, Object>> repositories =
+									((VdbRepositoryResolver<SmartSocketsDaemonClient>)mRepositoryResolver).getRepositoryList(email);
+							List<String> allowedNames = new ArrayList<String>();
+							for (int i = 0; i < repositories.size(); i++) {
+								Map<String, Object> repo = repositories.get(i);
+								if (Boolean.TRUE.equals(repo.get(VdbProviderRegistry.REPOSITORY_IS_PUBLIC)) ||
+										Boolean.TRUE.equals(repo.get(VdbProviderRegistry.REPOSITORY_IS_PEER)) ) {
+									allowedNames.add((String) repo.get(VdbProviderRegistry.REPOSITORY_NAME));
+								}
+							}
+
+							out = new DataOutputStream(dc.getOutputStream());
+							out.write(allowedNames.size());
+							for (int i = 0; i < allowedNames.size(); i++) {
+								out.writeUTF(allowedNames.get(i));
+								out.writeChar('\n');
+							}
+						} finally {
+							if (in != null) {
+								try {
+									in.close();
+								} catch (IOException e) {
+									// Intentionally ignored.
+								}
+							}
+							if (out != null) {
+								try {
+									out.close();
+								} catch (IOException e) {
+									// Intentionally ignored.
+								}
+							}
+						}
 					}
 				},
 				new SmartsocketsDaemonService("upload-pack", "uploadpack") {
@@ -367,8 +411,7 @@ public class SmartSocketsDaemon {
 					try {
 						virtualSocket.close();
 					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+						// Intentionally ignored.
 					}
 				}
 				logger.debug("Thread is complete.");

@@ -1,6 +1,8 @@
 package interdroid.vdb.transport;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 import interdroid.vdb.content.VdbProviderRegistry;
 import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
@@ -42,6 +44,10 @@ public class VdbRepositoryResolver<C> implements RepositoryResolver<C> {
 		}
 		logger.debug("Found repo: {}", result);
 		return result;
+	}
+
+	public List<Map<String, Object>> getRepositoryList(String email) throws IOException {
+		return mProviderRegistry.getAllRepositories(email);
 	}
 
 }

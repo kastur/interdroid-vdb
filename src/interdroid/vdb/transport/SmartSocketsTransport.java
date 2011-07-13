@@ -16,9 +16,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.jgit.JGitText;
@@ -213,8 +211,8 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		}
 	}
 
-	public static List<Map<String, ?>> getRepositories(URIish uri) throws MalformedAddressException, IOException, InitializationException {
-		List<Map<String, ?>> repositories = null;
+	public static List<String> getRepositories(String email, URIish uri) throws MalformedAddressException, IOException, InitializationException {
+		List<String> repositories = null;
 		VirtualSocket socket = openConnection(uri, 60);
 
 		OutputStream out = null;
@@ -222,14 +220,15 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		try {
 			out = new BufferedOutputStream(socket.getOutputStream());
 			out.write("git-list-repos\0".getBytes());
-			repositories = new ArrayList<Map<String, ?>>();
+			out.write(email.getBytes());
+			out.write('\n');
+
+			repositories = new ArrayList<String>();
 
 			in = new DataInputStream( new BufferedInputStream(socket.getInputStream()) );
 			int count = in.readInt();
 			for (int i = 0; i < count; i++) {
-				// TODO: Need to finish this
-				@SuppressWarnings("rawtypes")
-				HashMap<String, ?> data = new HashMap();
+				repositories.add(in.readLine());
 			}
 		} finally {
 			if(in != null) {

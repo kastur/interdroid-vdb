@@ -33,6 +33,7 @@ public class VdbProviderRegistry {
 
 	public static final String REPOSITORY_NAME = "repoName";
 	public static final String REPOSITORY_IS_PEER = "isPeer";
+	public static final String REPOSITORY_IS_PUBLIC = "isPublic";
 	private static final String REPOSITORY_ID = "id_";
 
 	private static class RepositoryInfo {
@@ -202,7 +203,7 @@ public class VdbProviderRegistry {
 
 	public List<Map<String, Object>> getAllRepositories(String email) throws IOException {
 		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
-
+		logger.debug("Getting repos for: {}", email);
 		for (RepositoryInfo info : repoInfos_.values()) {
 			// We exclude all interdroid repositories
 			if (! info.conf_.name_.startsWith("interdroid.vdb")) {
@@ -218,6 +219,7 @@ public class VdbProviderRegistry {
 				} else {
 					map.put(REPOSITORY_IS_PEER, false);
 				}
+				map.put(REPOSITORY_IS_PUBLIC, repo.isPublic());
 				result.add(map);
 			}
 		}
