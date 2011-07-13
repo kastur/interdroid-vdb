@@ -55,7 +55,7 @@ public class VdbRepositoryImpl implements VdbRepository {
 
 	private static final String VDB_PREFERENCES_SECTION = "vdb";
 
-	private static final String PREF_IS_PUBLIC = "is_public";
+	private static final String PREF_IS_PUBLIC = "ispublic";
 
 	public VdbRepositoryImpl(String name, File repoDir, VdbInitializer initializer)
 	throws IOException
