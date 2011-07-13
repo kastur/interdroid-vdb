@@ -53,6 +53,10 @@ public class VdbRepositoryImpl implements VdbRepository {
     private static final String BRANCH_REF_PREFIX = Constants.R_HEADS;
     private static final String REMOTES_REF_PREFIX = Constants.R_REMOTES;
 
+	private static final String VDB_PREFERENCES_SECTION = "vdb";
+
+	private static final String PREF_IS_PUBLIC = "is_public";
+
 	public VdbRepositoryImpl(String name, File repoDir, VdbInitializer initializer)
 	throws IOException
 	{
@@ -406,5 +410,17 @@ public class VdbRepositoryImpl implements VdbRepository {
 	{
 		// TODO(emilian): implement me
 		throw new RuntimeException("Not implemented");
+	}
+
+	@Override
+	public boolean isPublic() {
+		return gitRepo_.getConfig().getBoolean(VDB_PREFERENCES_SECTION, PREF_IS_PUBLIC, false);
+	}
+
+	@Override
+	public void setIsPublic(boolean isChecked) throws IOException {
+		StoredConfig config = gitRepo_.getConfig();
+		config.setBoolean(VDB_PREFERENCES_SECTION, null, PREF_IS_PUBLIC, isChecked);
+		config.save();
 	}
 }

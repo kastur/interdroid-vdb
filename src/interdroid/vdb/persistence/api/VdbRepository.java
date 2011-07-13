@@ -170,4 +170,19 @@ public interface VdbRepository {
 	 */
 	public RevWalk enumerateCommits(String ...leaves)
 		throws IOException;
+
+	/**
+	 * Returns true if this repository is marked as a public repository.
+	 * @return true if this is a public repository.
+	 */
+	public boolean isPublic();
+
+	/**
+	 * Sets this repository to be public or private.
+	 * @param isChecked true if this repository should be public
+	 * @throws IOException If there is a problem saving the preference.
+	 */
+	public void setIsPublic(boolean isChecked) throws IOException;
+
+
 }
