@@ -55,9 +55,14 @@ import java.net.SocketAddress;
 import org.eclipse.jgit.transport.PacketLineIn;
 import org.eclipse.jgit.transport.resolver.ServiceNotAuthorizedException;
 import org.eclipse.jgit.transport.resolver.ServiceNotEnabledException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Active network client of {@link Daemon}. */
 public class SmartSocketsDaemonClient {
+	private static final Logger logger = LoggerFactory
+			.getLogger(SmartSocketsDaemonClient.class);
+
 	private final SmartSocketsDaemon daemon;
 
 	private SocketAddress peer;
@@ -96,12 +101,17 @@ public class SmartSocketsDaemonClient {
 
 	void execute(final VirtualSocket virtualSocket) throws IOException,
 			ServiceNotEnabledException, ServiceNotAuthorizedException {
-		rawIn = new BufferedInputStream(virtualSocket.getInputStream());
-		rawOut = new BufferedOutputStream(virtualSocket.getOutputStream());
+		logger.debug("Building streams.");
+		rawIn = virtualSocket.getInputStream();
+		rawOut = virtualSocket.getOutputStream();
 
+		logger.debug("Setting socket timeout.");
 		if (0 < daemon.getTimeout())
 			virtualSocket.setSoTimeout(daemon.getTimeout() * 1000);
+		logger.debug("Reading string.");
 		String cmd = new PacketLineIn(rawIn).readStringRaw();
+		logger.debug("Command is: {}", cmd);
+
 		final int nul = cmd.indexOf('\0');
 		if (nul >= 0) {
 			// Newer clients hide a "host" header behind this byte.
@@ -112,9 +122,11 @@ public class SmartSocketsDaemonClient {
 		}
 
 		final SmartsocketsDaemonService srv = getDaemon().matchService(cmd);
+		logger.debug("Servicing with: {}", srv);
 		if (srv == null)
 			return;
 		virtualSocket.setSoTimeout(0);
 		srv.execute(this, cmd);
+		logger.debug("Executed service.");
 	}
 }

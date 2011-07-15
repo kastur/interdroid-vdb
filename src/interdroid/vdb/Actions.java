@@ -1,5 +1,7 @@
 package interdroid.vdb;
 
+import android.content.Intent;
+
 /**
  * This class holds constants for triggering actions in the vdb-ui package.
  * It has to live here due to the way the android tools structure Library
@@ -62,13 +64,19 @@ public final class Actions {
     public static final String ACTION_MANAGE_REPOSITORIES =
             ACTION_BASE + "MANAGE_REPOSITORIES";
 
+    /** Manage peer information action. **/
 	public static final String ACTION_MANAGE_PEER_INFO =
 			ACTION_BASE + "MANAGE_PEER_INFO";
 
+	/** Manage local sharing action. **/
 	public static final String ACTION_MANAGE_LOCAL_SHARING =
 			ACTION_BASE + "MANAGE_LOCAL_SHARING";
 
+	/** Manage remote sharing action. **/
 	public static final String ACTION_MANAGE_REMOTE_SHARING =
 			ACTION_BASE + "MANAGE_REMOTE_SHARING";
+
+	/** The git service. **/
+	public static final String GIT_SERVICE = "interdroid.vdb.GIT_SERVICE";
 
 }

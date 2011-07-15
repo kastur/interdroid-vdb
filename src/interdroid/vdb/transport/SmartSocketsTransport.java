@@ -6,17 +6,20 @@ import ibis.smartsockets.virtual.InitializationException;
 import ibis.smartsockets.virtual.VirtualSocket;
 import ibis.smartsockets.virtual.VirtualSocketAddress;
 import ibis.smartsockets.virtual.VirtualSocketFactory;
+import interdroid.vdb.content.VdbProviderRegistry;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.jgit.JGitText;
@@ -27,6 +30,7 @@ import org.eclipse.jgit.transport.BasePackFetchConnection;
 import org.eclipse.jgit.transport.BasePackPushConnection;
 import org.eclipse.jgit.transport.FetchConnection;
 import org.eclipse.jgit.transport.PackTransport;
+import org.eclipse.jgit.transport.PacketLineIn;
 import org.eclipse.jgit.transport.PacketLineOut;
 import org.eclipse.jgit.transport.PushConnection;
 import org.eclipse.jgit.transport.TcpTransport;
@@ -40,6 +44,8 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 	private static final Logger logger = LoggerFactory
 	.getLogger(SmartSocketsTransport.class);
 
+	public static final String SMARTSOCKETS_TRANSPORT_SCHEME = "ss";
+
 	private static final int SMARTSOCKETS_PORT = 9090;
 
 	public static final TransportProtocol PROTO = new TransportProtocol() {
@@ -48,7 +54,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		}
 
 		public Set<String> getSchemes() {
-			return Collections.singleton("ss"); //$NON-NLS-1$
+			return Collections.singleton(SMARTSOCKETS_TRANSPORT_SCHEME); //$NON-NLS-1$
 		}
 
 		public Set<URIishField> getRequiredFields() {
@@ -74,7 +80,7 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 	public static final String EMAIL = "email";
 
 	// TODO: This should come from a property or something
-	private static final long TIMEOUT = 1000 * 30;
+	private static final int TIMEOUT = 1000 * 30;
 
 	protected SmartSocketsTransport(Repository local, URIish uri) {
 		super(local, uri);
@@ -108,7 +114,13 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 	}
 
 	static VirtualSocket openConnection(URIish uri, int timeout) throws MalformedAddressException, IOException, InitializationException {
+		logger.debug("Opening connection to: {} {}", uri, timeout);
+		logger.debug("Resolving: {}@{}", uri.getUser(), uri.getHost());
 		VirtualSocketAddress otherSide = NameResolver.getDefaultResolver().resolve(uri.getUser() + "@" + uri.getHost(), timeout);
+		logger.debug("Other side is: {}", otherSide);
+		if (otherSide == null) {
+			throw new IOException("Unable to resolve host: " + uri);
+		}
 		VirtualSocket s = VirtualSocketFactory.getDefaultSocketFactory().createClientSocket(otherSide, timeout, null);
 		return s;
 	}
@@ -211,33 +223,45 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 		}
 	}
 
-	public static List<String> getRepositories(String email, URIish uri) throws MalformedAddressException, IOException, InitializationException {
-		List<String> repositories = null;
-		VirtualSocket socket = openConnection(uri, 60);
-
-		OutputStream out = null;
-		DataInputStream in = null;
+	public static List<Map<String, Object>> getRepositories(String localEmail, String remoteEmail) throws MalformedAddressException, IOException, InitializationException {
+		List<Map<String, Object>> repositories = null;
+		URIish uri;
+		logger.debug("Getting repositories from: " + remoteEmail);
 		try {
-			out = new BufferedOutputStream(socket.getOutputStream());
-			out.write("git-list-repos\0".getBytes());
-			out.write(email.getBytes());
-			out.write('\n');
+			uri = new URIish(SMARTSOCKETS_TRANSPORT_SCHEME + "://" + remoteEmail + "/");
+		} catch (URISyntaxException e) {
+			throw new MalformedAddressException(e);
+		}
+		VirtualSocket socket = openConnection(uri, TIMEOUT);
+		socket.setSoTimeout(TIMEOUT);
 
-			repositories = new ArrayList<String>();
+		PacketLineOut out = null;
+		PacketLineIn in = null;
+		try {
+			logger.debug("Sending Command.");
+			out = new PacketLineOut(socket.getOutputStream());
+			out.writeString("git-list-repos " + localEmail);
 
-			in = new DataInputStream( new BufferedInputStream(socket.getInputStream()) );
-			int count = in.readInt();
-			for (int i = 0; i < count; i++) {
-				repositories.add(in.readLine());
+			repositories = new ArrayList<Map<String, Object>>();
+			logger.debug("Reading result.");
+			in = new PacketLineIn(socket.getInputStream());
+			for (String repository = in.readString(); !repository.equals(PacketLineIn.END); repository = in.readString()) {
+				logger.debug("Read repository: {}", repository);
+				Map<String, Object> repoInfo = new HashMap<String, Object>();
+				repoInfo.put(VdbProviderRegistry.REPOSITORY_NAME, repository);
+				repoInfo.put(VdbProviderRegistry.REPOSITORY_IS_PEER, Boolean.valueOf(in.readString()));
+				repoInfo.put(VdbProviderRegistry.REPOSITORY_IS_PUBLIC, Boolean.valueOf(in.readString()));
+				repositories.add(repoInfo);
 			}
 		} finally {
 			if(in != null) {
-				in.close();
+				socket.getInputStream().close();
 			}
 			if (out != null) {
-				out.close();
+				socket.getOutputStream().close();
 			}
 		}
+		logger.debug("Done fetching repositories.");
 		return repositories;
 	}
 

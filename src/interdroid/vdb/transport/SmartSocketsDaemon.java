@@ -1,6 +1,7 @@
 package interdroid.vdb.transport;
 
 import ibis.smartsockets.SmartSocketsProperties;
+import ibis.smartsockets.naming.NameResolver;
 import ibis.smartsockets.virtual.InitializationException;
 import ibis.smartsockets.virtual.VirtualServerSocket;
 import ibis.smartsockets.virtual.VirtualSocket;
@@ -25,6 +26,8 @@ import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.storage.pack.PackConfig;
+import org.eclipse.jgit.transport.PacketLineIn;
+import org.eclipse.jgit.transport.PacketLineOut;
 import org.eclipse.jgit.transport.ReceivePack;
 import org.eclipse.jgit.transport.UploadPack;
 import org.eclipse.jgit.transport.resolver.ReceivePackFactory;
@@ -130,49 +133,53 @@ public class SmartSocketsDaemon {
 
 					@Override
 					protected void execute(final SmartSocketsDaemonClient dc,
-							final Repository db) throws IOException,
+							final String commandLine) throws IOException,
 							ServiceNotEnabledException,
 							ServiceNotAuthorizedException {
 						logger.debug("List Repos Called");
-						DataInputStream in = null;
-						DataOutputStream out = null;
+						PacketLineIn in = null;
+						PacketLineOut out = null;
+						final String email = commandLine.substring(command.length() + 1);
+						logger.debug("Listing repos for: {}", email);
 						try {
-
-							in = new DataInputStream(dc.getInputStream());
-							String email = in.readLine();
+							in = new PacketLineIn(dc.getInputStream());
+							out = new PacketLineOut(dc.getOutputStream());
 							List<Map<String, Object>> repositories =
 									((VdbRepositoryResolver<SmartSocketsDaemonClient>)mRepositoryResolver).getRepositoryList(email);
-							List<String> allowedNames = new ArrayList<String>();
 							for (int i = 0; i < repositories.size(); i++) {
 								Map<String, Object> repo = repositories.get(i);
 								if (Boolean.TRUE.equals(repo.get(VdbProviderRegistry.REPOSITORY_IS_PUBLIC)) ||
 										Boolean.TRUE.equals(repo.get(VdbProviderRegistry.REPOSITORY_IS_PEER)) ) {
-									allowedNames.add((String) repo.get(VdbProviderRegistry.REPOSITORY_NAME));
+									logger.debug("Sending repo: {}", repo.get(VdbProviderRegistry.REPOSITORY_NAME));
+									out.writeString((String) repo.get(VdbProviderRegistry.REPOSITORY_NAME));
+									out.writeString(String.valueOf(repo.get(VdbProviderRegistry.REPOSITORY_IS_PEER)));
+									out.writeString(String.valueOf(repo.get(VdbProviderRegistry.REPOSITORY_IS_PUBLIC)));
 								}
 							}
-
-							out = new DataOutputStream(dc.getOutputStream());
-							out.write(allowedNames.size());
-							for (int i = 0; i < allowedNames.size(); i++) {
-								out.writeUTF(allowedNames.get(i));
-								out.writeChar('\n');
-							}
+							out.end();
 						} finally {
 							if (in != null) {
 								try {
-									in.close();
+									dc.getInputStream().close();
 								} catch (IOException e) {
 									// Intentionally ignored.
 								}
 							}
 							if (out != null) {
 								try {
-									out.close();
+									dc.getOutputStream().close();
 								} catch (IOException e) {
 									// Intentionally ignored.
 								}
 							}
 						}
+					}
+
+					@Override
+					void execute(SmartSocketsDaemonClient client, Repository db)
+							throws IOException, ServiceNotEnabledException,
+							ServiceNotAuthorizedException {
+						logger.error("Got request for non-db enabled request.");
 					}
 				},
 				new SmartsocketsDaemonService("upload-pack", "uploadpack") {
@@ -313,9 +320,12 @@ public class SmartSocketsDaemon {
 	 *             the daemon is already running.
 	 */
 	public synchronized void start() throws IOException, InitializationException {
+		logger.debug("Starting SmartSocketsDaemon.");
 		if (mAcceptThread != null)
 			throw new IllegalStateException(JGitText.get().daemonAlreadyRunning);
 
+		// Start the resolver
+		NameResolver.getDefaultResolver();
 		mSocketFactory = VirtualSocketFactory.createSocketFactory(sSocketProperties, true);
 		mListenSock = mSocketFactory.createServerSocket(DEFAULT_PORT, BACKLOG, null);
 		if (mListenSock == null) {
@@ -357,6 +367,12 @@ public class SmartSocketsDaemon {
 
 	/** Stop this daemon. */
 	public synchronized void stop() {
+		logger.info("Stopping SmartSocketsDaemon.");
+		try {
+			NameResolver.closeAllResolvers();
+		} catch (IOException e) {
+			logger.error("Error while shutting down resolver.", e);
+		}
 		if (mAcceptThread != null) {
 			synchronized (this) {
 				mRun = false;
@@ -390,7 +406,7 @@ public class SmartSocketsDaemon {
 		new Thread(mProcessors, "Git-Daemon-Client " + peer.toString()) {
 			public void run() {
 				try {
-					logger.debug("Executing client request.");
+					logger.debug("Executing client request:{}", dc);
 					dc.execute(virtualSocket);
 					logger.debug("Client request handled.");
 				} catch (Exception e) {

@@ -59,7 +59,7 @@ public abstract class SmartsocketsDaemonService {
 	private static final Logger logger = LoggerFactory
 			.getLogger(SmartsocketsDaemonService.class);
 
-	private final String command;
+	protected final String command;
 
 	private final SectionParser<ServiceConfig> configKey;
 
@@ -126,6 +126,7 @@ public abstract class SmartsocketsDaemonService {
 	 * @return true if this command can accept the given command line.
 	 */
 	public boolean handles(final String commandLine) {
+		logger.debug("Checking for match: {} {}", command, commandLine);
 		return command.length() + 1 < commandLine.length()
 				&& commandLine.charAt(command.length()) == ' '
 				&& commandLine.startsWith(command);
@@ -136,6 +137,7 @@ public abstract class SmartsocketsDaemonService {
 			ServiceNotAuthorizedException {
 		final String name = commandLine.substring(command.length() + 1);
 		logger.debug("Got request for repo: {}", name);
+		// This should be based on some kind of type flag
 		Repository db = null;
 		if (name != null && name.length() > 0) {
 			db = client.getDaemon().openRepository(client, name);
