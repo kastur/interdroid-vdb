@@ -412,20 +412,9 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		int count = 0;
 		try {
 			values = sanitize(values);
-			if (result.entityIdentifier != null) {
-				if (whereArgs != null) {
-					String[] temp = new String[whereArgs.length + 1];
-					System.arraycopy(whereArgs, 0, temp, 0, whereArgs.length);
-					temp[temp.length - 1] = result.entityIdentifier;
-				} else {
-					whereArgs =  new String[] {result.entityIdentifier};
-				}
-				count = db.update(escapeName(entityInfo), values, //null, null);
-						entityInfo.key.get(0).fieldName + "=?"
-						+ (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
-			} else {
-				count = db.update(escapeName(entityInfo), values, where, whereArgs);
-			}
+			count = db.update(escapeName(entityInfo), values,
+					prepareWhereClause(where, result, entityInfo),
+					prepareWhereArgs(whereArgs, result, entityInfo));
 		} finally {
 			vdbBranch.releaseDatabase();
 		}
@@ -443,6 +432,58 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		logger.debug("Updated: {}", count);
 		return count;
 
+	}
+
+	private String prepareWhereClause(String where, final UriMatch result,
+			final EntityInfo entityInfo) {
+		boolean hasParentId = result.parentEntityIdentifiers != null;
+		boolean hasEntityId = result.entityIdentifier != null;
+		boolean hasWhere =  !TextUtils.isEmpty(where);
+		String ret =
+			   (hasParentId ? PARENT_COLUMN_PREFIX + entityInfo.parentEntity.key.get(0).fieldName + "=?" : "") +
+			   (hasParentId && hasEntityId ? " AND " : "") +
+			   (hasEntityId ? entityInfo.key.get(0).fieldName + "=?" : "") +
+			   (hasWhere ?
+					   (hasEntityId || hasParentId ? " AND (" + where + ')' : where )
+					   : "");
+		return ret;
+	}
+
+	private String[] prepareWhereArgs(String[] whereArgs,
+			final UriMatch result, final EntityInfo entityInfo) {
+		boolean hasParentId = result.parentEntityIdentifiers != null;
+		boolean hasEntityId = result.entityIdentifier != null;
+
+		if (hasParentId && logger.isDebugEnabled()) {
+			logger.debug("Adding parent id to query: {} {}",
+					PARENT_COLUMN_PREFIX  + entityInfo.parentEntity.key.get(0).fieldName,
+					result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
+		}
+		if (whereArgs != null) {
+			if (hasParentId || hasEntityId) {
+				// One or two more args depending on if we have a parent
+				int newLength = whereArgs.length + (hasParentId ? 1 : 0) + (hasEntityId ? 1 : 0);
+				String[] temp = new String[newLength];
+				System.arraycopy(whereArgs, 0, temp, 0, whereArgs.length);
+				// Append ID of entity if required
+				if (hasEntityId) {
+					temp[temp.length - 1] = result.entityIdentifier;
+				}
+				// Append ID of parent if required
+				if (hasParentId) {
+					temp[temp.length - (hasEntityId ? 2 : 1)] = result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1);
+				}
+			}
+		} else {
+			if (hasParentId && hasEntityId) {
+				whereArgs =  new String[] {result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1), result.entityIdentifier};
+			} else if (!hasParentId && hasEntityId) {
+				whereArgs =  new String[] {result.entityIdentifier};
+			} else if (hasParentId && !hasEntityId) {
+				whereArgs =  new String[] {result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1)};
+			}
+		}
+		return whereArgs;
 	}
 
 	// This sucks. Android does not quote value identifiers properly.
@@ -498,17 +539,9 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 
 		try {
-			int count;
-			if (result.entityIdentifier != null) {
-				if (logger.isDebugEnabled())
-					logger.debug("Deleting: " + entityInfo.name());
-
-				count = db.delete(escapeName(entityInfo),
-						entityInfo.key.get(0).fieldName + "=" + result.entityIdentifier
-						+ (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
-			} else {
-				count = db.delete(escapeName(entityInfo), where, whereArgs);
-			}
+			int count = db.delete(escapeName(entityInfo),
+					prepareWhereClause(where, result, entityInfo),
+					prepareWhereArgs(whereArgs, result, entityInfo));
 
 			getContext().getContentResolver().notifyChange(uri, null);
 			return count;
