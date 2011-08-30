@@ -177,6 +177,8 @@ public class VdbCheckoutImpl implements VdbCheckout {
 			VdbInitializer initializer)
 	throws IOException
     {
+		VdbCheckoutImpl branch = null;
+
 		if (logger.isDebugEnabled())
 			logger.debug("Creating master for: " + parentRepo.getName());
 		File masterDir = new File(parentRepo.getRepositoryDir(), Constants.MASTER);
@@ -184,26 +186,28 @@ public class VdbCheckoutImpl implements VdbCheckout {
 			throw new IOException("Unable to create directory: " + masterDir.getCanonicalPath());
 		}
 
-        SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(new File(masterDir, SQLITEDB), null);
-        initializer.onCreate(db);
-		db.setVersion(1);
+		if (initializer != null) {
+			SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(new File(masterDir, SQLITEDB), null);
+			db.setVersion(1);
+			initializer.onCreate(db);
 
-		File schema = new File(masterDir, SCHEMA_FILE);
-		if (!schema.createNewFile()) {
-			throw new RuntimeException("Unable to create schema file");
-		}
-		FileOutputStream fos = new FileOutputStream(schema);
-		fos.write(initializer.getSchema().getBytes("utf8"));
-		fos.close();
+			File schema = new File(masterDir, SCHEMA_FILE);
+			if (!schema.createNewFile()) {
+				throw new RuntimeException("Unable to create schema file");
+			}
+			FileOutputStream fos = new FileOutputStream(schema);
+			fos.write(initializer.getSchema().getBytes("utf8"));
+			fos.close();
 
-		VdbCheckoutImpl branch = new VdbCheckoutImpl(parentRepo, Constants.MASTER);
-		branch.setDb(db);
+			branch = new VdbCheckoutImpl(parentRepo, Constants.MASTER);
+			branch.setDb(db);
 
-		try {
-			branch.commit("Versioning Daemon", "vd@localhost", "Initial schema-only version.");
-		} catch (MergeInProgressException e) {
-			// should never happen because we're surely not in merge mode
-			throw new RuntimeException(e);
+			try {
+				branch.commit("Versioning Daemon", "vd@localhost", "Initial schema-only version.");
+			} catch (MergeInProgressException e) {
+				// should never happen because we're surely not in merge mode
+				throw new RuntimeException(e);
+			}
 		}
 
 		return branch;
