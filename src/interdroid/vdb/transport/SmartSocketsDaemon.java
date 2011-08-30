@@ -1,6 +1,5 @@
 package interdroid.vdb.transport;
 
-import ibis.smartsockets.SmartSocketsProperties;
 import ibis.smartsockets.naming.NameResolver;
 import ibis.smartsockets.virtual.InitializationException;
 import ibis.smartsockets.virtual.VirtualServerSocket;
@@ -9,17 +8,13 @@ import ibis.smartsockets.virtual.VirtualSocketAddress;
 import ibis.smartsockets.virtual.VirtualSocketFactory;
 import interdroid.vdb.content.VdbProviderRegistry;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketAddress;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 import org.eclipse.jgit.JGitText;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
@@ -71,12 +66,7 @@ public class SmartSocketsDaemon {
 	private VirtualServerSocket mListenSock;
 
 	private VirtualSocketFactory mSocketFactory;
-
-	private static Properties sSocketProperties = new Properties();
-
-	static {
-		sSocketProperties.put(SmartSocketsProperties.DIRECT_CACHE_IP, "false");
-	}
+	private NameResolver mResolver;
 
 	/** Configure a daemon to listen on any available network port. */
 	public SmartSocketsDaemon() {
@@ -324,9 +314,11 @@ public class SmartSocketsDaemon {
 		if (mAcceptThread != null)
 			throw new IllegalStateException(JGitText.get().daemonAlreadyRunning);
 
-		// Start the resolver
-		NameResolver.getDefaultResolver();
-		mSocketFactory = VirtualSocketFactory.createSocketFactory(sSocketProperties, true);
+		// Start the resolver if it isn't already running.
+		mResolver = SmartSocketsTransport.getResolver();
+		mSocketFactory = mResolver.getSocketFactory();
+		logger.debug("Socket Factory has serviceLink: {}", mSocketFactory.getServiceLink());
+
 		mListenSock = mSocketFactory.createServerSocket(DEFAULT_PORT, BACKLOG, null);
 		if (mListenSock == null) {
 			throw new InitializationException("Unable to construct server socket.");
@@ -368,11 +360,7 @@ public class SmartSocketsDaemon {
 	/** Stop this daemon. */
 	public synchronized void stop() {
 		logger.info("Stopping SmartSocketsDaemon.");
-		try {
-			NameResolver.closeAllResolvers();
-		} catch (IOException e) {
-			logger.error("Error while shutting down resolver.", e);
-		}
+		NameResolver.closeAllResolvers();
 		if (mAcceptThread != null) {
 			synchronized (this) {
 				mRun = false;
@@ -470,5 +458,9 @@ public class SmartSocketsDaemon {
 			// for the remote client to know.
 			return null;
 		}
+	}
+
+	public NameResolver getResolver() {
+		return mResolver;
 	}
 }

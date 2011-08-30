@@ -1,5 +1,6 @@
 package interdroid.vdb.transport;
 
+import ibis.smartsockets.SmartSocketsProperties;
 import ibis.smartsockets.naming.NameResolver;
 import ibis.smartsockets.util.MalformedAddressException;
 import ibis.smartsockets.virtual.InitializationException;
@@ -20,6 +21,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import org.eclipse.jgit.JGitText;
@@ -47,6 +49,18 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 	public static final String SMARTSOCKETS_TRANSPORT_SCHEME = "ss";
 
 	private static final int SMARTSOCKETS_PORT = 9090;
+
+	public static Properties sSocketProperties = new Properties();
+
+	static {
+		sSocketProperties.put(SmartSocketsProperties.DIRECT_CACHE_IP, "false");
+		//sSocketProperties.put(SmartSocketsProperties.HUB_GOSSIP_INTERVAL, "60000");
+		//sSocketProperties.put(SmartSocketsProperties.HUB_ADDRESSES, "10.0.1.57-17878#3a.32.89.ff.07.7b.00.00.85.cf.70.8c.99.6a.9f.a8~nick");
+		//sSocketProperties.put(SmartSocketsProperties.HUB_ADDRESSES, "130.37.152.198/130.37.29.189-17878~nick");
+		sSocketProperties.put(SmartSocketsProperties.HUB_ADDRESSES, "130.37.29.189-17878~nick");
+		sSocketProperties.put(SmartSocketsProperties.START_HUB, "true");
+		//sSocketProperties.put(SmartSocketsProperties.HUB_ADDRESSES, "192.168.43.92-17878#e6.14.91.68.08.7b.00.00.ac.ca.9e.c7.2e.3d.4f.8e~nick");
+	}
 
 	public static final TransportProtocol PROTO = new TransportProtocol() {
 		public String getName() {
@@ -110,18 +124,19 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 
 	@Override
 	public void close() {
-		// TODO: Unregister our endpoint with smartsockets
+		// TODO: Unregister our endpoint with smartsockets?
 	}
 
 	static VirtualSocket openConnection(URIish uri, int timeout) throws MalformedAddressException, IOException, InitializationException {
 		logger.debug("Opening connection to: {} {}", uri, timeout);
 		logger.debug("Resolving: {}@{}", uri.getUser(), uri.getHost());
-		VirtualSocketAddress otherSide = NameResolver.getDefaultResolver().resolve(uri.getUser() + "@" + uri.getHost(), timeout);
+		NameResolver resolver = getResolver();
+		VirtualSocketAddress otherSide = resolver.resolve(uri.getUser() + "@" + uri.getHost(), timeout);
 		logger.debug("Other side is: {}", otherSide);
 		if (otherSide == null) {
-			throw new IOException("Unable to resolve host: " + uri);
+			throw new IOException("Unable to resolve host: " + uri.getUser() + "@" + uri.getHost());
 		}
-		VirtualSocket s = VirtualSocketFactory.getDefaultSocketFactory().createClientSocket(otherSide, timeout, null);
+		VirtualSocket s = resolver.getSocketFactory().createClientSocket(otherSide, timeout, null);
 		return s;
 	}
 
@@ -260,9 +275,14 @@ public class SmartSocketsTransport extends TcpTransport implements PackTransport
 			if (out != null) {
 				socket.getOutputStream().close();
 			}
+			socket.close();
 		}
 		logger.debug("Done fetching repositories.");
 		return repositories;
+	}
+
+	public static NameResolver getResolver() throws InitializationException {
+		return NameResolver.getOrCreateResolver(SMARTSOCKETS_TRANSPORT_SCHEME, sSocketProperties, true);
 	}
 
 }
