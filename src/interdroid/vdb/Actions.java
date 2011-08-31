@@ -79,4 +79,7 @@ public final class Actions {
 	/** The git service. **/
 	public static final String GIT_SERVICE = "interdroid.vdb.GIT_SERVICE";
 
+	/** Initialize a database **/
+    public static final String ACTION_INIT_DB = "interdroid.vdb.INIT_DB";
+
 }
