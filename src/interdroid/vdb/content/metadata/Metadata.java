@@ -40,7 +40,7 @@ public abstract class Metadata {
 		EntityInfo result = entities.get(name);
 
 		// Check the namespaces then if we are lacking a match
-		if (result == null && !name.startsWith(namespace_)) {
+		if (result == null) {
 			for (String namespace : namespaces.keySet()) {
 				if (logger.isDebugEnabled())
 					logger.debug("Checking for entity: " + namespace + "." + name);
