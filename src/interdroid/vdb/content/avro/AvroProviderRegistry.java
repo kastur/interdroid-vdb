@@ -143,7 +143,10 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 					c.moveToFirst();
 					Schema currentSchema = Schema.parse(c.getString(c.getColumnIndex(KEY_SCHEMA)));
 					if (! schema.equals(currentSchema)) {
-						// TODO: Migrate the database to the new schema and check it in.
+						logger.debug("Update required.");
+
+						migrateDb(context, currentSchema, schema);
+
 						ContentValues values = new ContentValues();
 						values.put(KEY_SCHEMA, schema.toString());
 						context.getContentResolver().update(URI,
@@ -160,5 +163,49 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 			}
 		}
 		logger.debug("Schema registration complete.");
+	}
+
+	private static void migrateDb(Context context, Schema currentSchema,
+			Schema schema) {
+		Cursor c = null;
+		try {
+			c = context.getContentResolver().query(
+					EntityUriBuilder.branchUri(VdbMainContentProvider.AUTHORITY, currentSchema.getNamespace(),
+							"master/" + currentSchema.getName()), new String[] {"_id"}, null, null, null);
+		} finally {
+			try {
+				if (c == null) {
+					c.close();
+				}
+			} catch (Exception e) {
+				logger.error("Caught excption closing cursor", e);
+			}
+		}
+	}
+
+	public static Schema getSchema(Context context, Uri uri) {
+		Cursor c = null;
+		Schema schema = null;
+		try {
+			logger.debug("Querying for schema for: {} {}", uri, uri.getPathSegments().get(0));
+			c = context.getContentResolver().query(URI, new String[]{KEY_SCHEMA}, KEY_NAMESPACE + "=?", new String[] {uri.getPathSegments().get(0)}, null);
+			if (c != null && c.moveToFirst()) {
+				int schemaIndex = c.getColumnIndex(KEY_SCHEMA);
+				String schemaString = c.getString(schemaIndex);
+				logger.debug("Got schema: {}", schemaString);
+				schema = Schema.parse(schemaString);
+			} else {
+				logger.error("Schema not found.");
+			}
+		} finally {
+			if (c != null) {
+				try {
+					c.close();
+				} catch (Exception e) {
+					logger.warn("Exception while closing cursor: ", e);
+				}
+			}
+		}
+		return schema;
 	}
 }

@@ -120,39 +120,46 @@ public class VdbRepositoryImpl implements VdbRepository {
 
 	public File checkoutReference(String subdir, String reference) throws IOException
     {
-    	File checkoutDir = new File(repoDir_, subdir);
-    	if (checkoutDir.isDirectory()) { // assume it's already checked out
-    		return checkoutDir;
-    	}
-    	if (!checkoutDir.mkdir() || !checkoutDir.isDirectory()) {
-    		throw new IOException("Could not create checkout directory " + subdir);
-    	}
-    	Repository repo = getGitRepository(subdir);
-    	Ref ref = repo.getRef(reference);
-    	RevWalk revWalk = new RevWalk(repo);
-		AnyObjectId headId = ref.getObjectId();
-		RevCommit headCommit = headId == null ? null : revWalk
-				.parseCommit(headId);
-		RevCommit newCommit = revWalk.parseCommit(ref.getObjectId());
-		RevTree headTree = headCommit == null ? null : headCommit.getTree();
-		DirCacheCheckout dco = new DirCacheCheckout(repo, headTree,
-				repo.lockDirCache(), newCommit.getTree());
-		dco.setFailOnConflict(true);
-		try {
-			dco.checkout();
-		} catch (CheckoutConflictException e) {
-			throw e;
-		}
+	    logger.debug("getting checkout: {} {}", subdir, reference);
+	    Repository repo = getGitRepository(subdir);
+	    Ref ref = repo.getRef(reference);
+	    File checkoutDir = null;
 
-    	return checkoutDir;
+	    if (ref != null) {
+	        checkoutDir = new File(repoDir_, subdir);
+	        if (checkoutDir.isDirectory()) { // assume it's already checked out
+	            return checkoutDir;
+	        }
+	        if (!checkoutDir.mkdir() || !checkoutDir.isDirectory()) {
+	            throw new IOException("Could not create checkout directory " + subdir);
+	        }
+
+	        RevWalk revWalk = new RevWalk(repo);
+	        AnyObjectId headId = ref.getObjectId();
+	        RevCommit headCommit = headId == null ? null : revWalk
+	                .parseCommit(headId);
+	        RevCommit newCommit = revWalk.parseCommit(ref.getObjectId());
+	        RevTree headTree = headCommit == null ? null : headCommit.getTree();
+	        DirCacheCheckout dco = new DirCacheCheckout(repo, headTree,
+	                repo.lockDirCache(), newCommit.getTree());
+	        dco.setFailOnConflict(true);
+	        try {
+	            dco.checkout();
+	        } catch (CheckoutConflictException e) {
+	            throw e;
+	        }
+	    } else {
+	        throw new RuntimeException("No such reference.");
+	    }
+	    return checkoutDir;
     }
 
-    public File checkoutBranch(String branchName) throws IOException
-    {
-    	return checkoutReference(branchName, BRANCH_REF_PREFIX + branchName);
-    }
+	public File checkoutBranch(String branchName) throws IOException
+	{
+	    return checkoutReference(branchName, BRANCH_REF_PREFIX + branchName);
+	}
 
-    public File checkoutCommit(String sha1) throws IOException
+	public File checkoutCommit(String sha1) throws IOException
     {
     	return checkoutReference(sha1, sha1);
     }

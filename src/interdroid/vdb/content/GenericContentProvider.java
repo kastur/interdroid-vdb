@@ -275,6 +275,9 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 		if (logger.isDebugEnabled())
 			logger.debug("Getting entity: " + result.entityName);
+		if (result.entityName == null) {
+	          throw new RuntimeException("Uri does not specify an entity: " + result.entityName);
+		}
 		final EntityInfo entityInfo = metadata_.getEntity(result);
 		if (entityInfo == null) {
 			throw new RuntimeException("Unable to find entity for: " + result.entityName);
@@ -336,8 +339,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 			logger.debug("Querying for: " + uri);
 		// Validate the requested uri
 		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		if (logger.isDebugEnabled())
-			logger.debug("Query for: " + result.entityName + " " + getClass().getCanonicalName());
+		logger.debug("Query for: {} {}", result.entityName, getClass().getCanonicalName());
 		final EntityInfo entityInfo = metadata_.getEntity(result);
 		if (entityInfo == null) {
 			throw new RuntimeException("Unable to find entity for: " + result.entityName);

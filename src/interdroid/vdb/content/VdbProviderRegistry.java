@@ -83,7 +83,7 @@ public class VdbProviderRegistry {
 	}
 
 	private void buildProvider(Context context, RepositoryInfo info) throws IOException {
-		logger.debug("Building provider for: {}", info);
+		logger.debug("Building provider for: {}", info.conf_.name_);
 		try {
 			if (info.provider_ == null) {
 				if(info.conf_.avroSchema_ != null) {
