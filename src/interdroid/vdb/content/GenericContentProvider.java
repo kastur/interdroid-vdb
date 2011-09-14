@@ -2,6 +2,7 @@ package interdroid.vdb.content;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map.Entry;
 
 import org.slf4j.Logger;
@@ -84,18 +85,24 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		{
 			if (logger.isDebugEnabled())
 				logger.debug("Initializing database for: " + namespace_);
+			// Keep track of what has been built as we go so as not to duplicate
+			HashMap<String, String> built = new HashMap<String, String>();
 			for (EntityInfo entity : metadata_.getEntities()) {
 				// Only handle root entities.
 				// Children get recursed so foreign key constraints all point up
 				if (entity.parentEntity == null) {
-					buildTables(db, entity);
+					buildTables(db, entity, built);
 				}
 			}
 		}
 
-		private void buildTables(SQLiteDatabase db, EntityInfo entity) {
+		private void buildTables(SQLiteDatabase db, EntityInfo entity, HashMap<String, String> built) {
 			boolean firstField = true;
 			ArrayList<EntityInfo>children = new ArrayList<EntityInfo>();
+			if (built.containsKey(entity.name())) {
+				logger.debug("Already built: {}", entity.name());
+				return;
+			}
 			if (logger.isDebugEnabled())
 				logger.debug("Creating table for: " + entity.namespace() + " : " + entity.name() + ":" + escapeName(namespace_, entity));
 			db.execSQL("DROP TABLE IF EXISTS " + escapeName(namespace_, entity));
@@ -109,11 +116,13 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 				case ONE_TO_MANY_STRING:
 					// Skip these since they are handled by putting the key for this one in the targetEntity
 					// but queue the child to be handled when we are done with this table.
+					logger.debug("Queueing Target Entity: ", field.targetEntity);
 					children.add(field.targetEntity);
 					break;
 				case ONE_TO_ONE:
+					logger.debug("Building child table: ", field.targetEntity);
 					// First we need to build the child table so we can do the foreign key on this one
-					buildTables(db, field.targetEntity);
+					buildTables(db, field.targetEntity, built);
 
 					if (!firstField) {
 						createSql.append(",\n");
@@ -129,6 +138,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 					createSql.append(field.targetField.fieldName);
 					createSql.append(')');
 					createSql.append(" DEFERRABLE");
+					logger.debug("Create SQL now: {}", createSql);
 					break;
 				default:
 					if (!firstField) {
@@ -146,6 +156,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 						createSql.append(field.targetField.fieldName);
 						createSql.append(") DEFERRABLE");
 					}
+					logger.debug("Create SQL Default: {}", createSql);
 					break;
 				}
 			}
@@ -173,7 +184,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 
 			// Now process any remaining children
 			for (EntityInfo child : children) {
-				buildTables(db, child);
+				buildTables(db, child, built);
 			}
 
 			// Now fill in any enumeration values
@@ -187,6 +198,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 					db.insert(escapeName(namespace_, entity), "_id", values);
 				}
 			}
+			built.put(entity.name(), entity.name());
 		}
 
 		@Override
@@ -276,7 +288,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		if (logger.isDebugEnabled())
 			logger.debug("Getting entity: " + result.entityName);
 		if (result.entityName == null) {
-	          throw new RuntimeException("Uri does not specify an entity: " + result.entityName);
+			throw new RuntimeException("Uri does not specify an entity: " + result.entityName);
 		}
 		final EntityInfo entityInfo = metadata_.getEntity(result);
 		if (entityInfo == null) {
@@ -422,12 +434,12 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 
 		/*
-		 TODO(emilian) implement auto commit support
-        try {
-        	vdbBranch.commitBranch();
-        } catch(IOException e) {
-        	Log.v(GenericContentProvider.class.getSimpleName(), e.toString());
-        }
+		TODO(emilian) implement auto commit support
+		try {
+			vdbBranch.commitBranch();
+		} catch(IOException e) {
+			Log.v(GenericContentProvider.class.getSimpleName(), e.toString());
+		}
 		 */
 
 		getContext().getContentResolver().notifyChange(uri, null);
@@ -442,12 +454,12 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		boolean hasEntityId = result.entityIdentifier != null;
 		boolean hasWhere =  !TextUtils.isEmpty(where);
 		String ret =
-			   (hasParentId ? PARENT_COLUMN_PREFIX + entityInfo.parentEntity.key.get(0).fieldName + "=?" : "") +
-			   (hasParentId && hasEntityId ? " AND " : "") +
-			   (hasEntityId ? entityInfo.key.get(0).fieldName + "=?" : "") +
-			   (hasWhere ?
-					   (hasEntityId || hasParentId ? " AND (" + where + ')' : where )
-					   : "");
+			(hasParentId ? PARENT_COLUMN_PREFIX + entityInfo.parentEntity.key.get(0).fieldName + "=?" : "") +
+			(hasParentId && hasEntityId ? " AND " : "") +
+			(hasEntityId ? entityInfo.key.get(0).fieldName + "=?" : "") +
+			(hasWhere ?
+					(hasEntityId || hasParentId ? " AND (" + where + ')' : where )
+					: "");
 		return ret;
 	}
 
