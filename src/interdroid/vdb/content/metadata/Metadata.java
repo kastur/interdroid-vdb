@@ -42,9 +42,10 @@ public abstract class Metadata {
 		// Check the namespaces then if we are lacking a match
 		if (result == null) {
 			for (String namespace : namespaces.keySet()) {
+				String namespaceName = namespace + "." + name;
 				if (logger.isDebugEnabled())
-					logger.debug("Checking for entity: " + namespace + "." + name);
-				result = entities.get(namespace + "." + name);
+					logger.debug("Checking for entity: {}.", namespaceName);
+				result = entities.get(namespaceName);
 				if (result != null) {
 					break;
 				}
@@ -54,7 +55,7 @@ public abstract class Metadata {
 		if (result == null && logger.isDebugEnabled()) {
 			logger.debug("Not found...");
 			for (String key : entities.keySet()) {
-				logger.debug("Existing Entity: " + key);
+				logger.debug("Existing Entity: {}.", key);
 			}
 		}
 
@@ -63,12 +64,12 @@ public abstract class Metadata {
 
 	public EntityInfo getEntity(UriMatch uriMatch) {
 		if (logger.isDebugEnabled())
-			logger.debug("Checking for entity: " + uriMatch.entityName);
+			logger.debug("Checking for entity named: " + uriMatch.entityName);
 
 		EntityInfo result = getEntity(uriMatch.entityName);
 
 		// Check if this is something inside the parent type(s).
-		if (uriMatch.parentEntityNames != null) {
+		if (result == null && uriMatch.parentEntityNames != null) {
 			String name = uriMatch.entityName;
 			for (String parent : uriMatch.parentEntityNames){
 				name = parent + "_" + name;

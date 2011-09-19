@@ -324,7 +324,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 			if (logger.isDebugEnabled())
 				logger.debug("Inserting: " + entityInfo.name() + " : " + entityInfo.key.get(0).fieldName + ":" + values.getAsString(entityInfo.key.get(0).fieldName) + " : " + values.size());
 			// Do we need to include the parent identifier?
-			if (entityInfo.parentEntity != null) {
+			if (entityInfo.parentEntity != null && result.parentEntityIdentifiers != null) {
 				if (logger.isDebugEnabled())
 					logger.debug("Adding parent id: " + entityInfo.parentEntity.key.get(0).fieldName + ":" + result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
 				values.put(PARENT_COLUMN_PREFIX + entityInfo.parentEntity.key.get(0).fieldName, result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
@@ -369,7 +369,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 
 		// Append ID of parent if required
-		if (result.parentEntityIdentifiers != null) {
+		if (hasParent(result, entityInfo)) {
 			qb.appendWhere(PARENT_COLUMN_PREFIX  + entityInfo.parentEntity.key.get(0).fieldName + "=" + result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
 		}
 
@@ -400,6 +400,10 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 			vdbBranch.releaseDatabase();
 		}
 	}
+
+    private boolean hasParent(final UriMatch result, final EntityInfo entityInfo) {
+        return result.parentEntityIdentifiers != null && entityInfo.parentEntity != null;
+    }
 
 	@Override
 	public int update(Uri uri, ContentValues values, String where, String[] whereArgs)
@@ -450,7 +454,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 
 	private String prepareWhereClause(String where, final UriMatch result,
 			final EntityInfo entityInfo) {
-		boolean hasParentId = result.parentEntityIdentifiers != null;
+		boolean hasParentId = hasParent(result, entityInfo);
 		boolean hasEntityId = result.entityIdentifier != null;
 		boolean hasWhere =  !TextUtils.isEmpty(where);
 		String ret =
@@ -465,7 +469,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 
 	private String[] prepareWhereArgs(String[] whereArgs,
 			final UriMatch result, final EntityInfo entityInfo) {
-		boolean hasParentId = result.parentEntityIdentifiers != null;
+		boolean hasParentId = hasParent(result, entityInfo);
 		boolean hasEntityId = result.entityIdentifier != null;
 
 		if (hasParentId && logger.isDebugEnabled()) {
