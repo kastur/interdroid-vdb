@@ -2,12 +2,9 @@
 <classpath>
 	<classpathentry excluding="interdroid/vdb/persistence/ui/TestActivity.java" kind="src" path="src"/>
 	<classpathentry kind="src" path="gen"/>
-	<classpathentry kind="lib" path="external/slf4j-api-1.5.5.jar"/>
 	<classpathentry kind="lib" path="external/ibis-util-2.2.jar"/>
 	<classpathentry kind="con" path="com.android.ide.eclipse.adt.ANDROID_FRAMEWORK"/>
 	<classpathentry kind="lib" path="external/avro-1.6.0-SNAPSHOT.jar"/>
-	<classpathentry kind="lib" path="external/jackson-core-asl-1.7.3.jar"/>
-	<classpathentry kind="lib" path="external/jackson-mapper-asl-1.7.3.jar"/>
 	<classpathentry kind="lib" path="external/paranamer-2.3.jar"/>
 	<classpathentry kind="lib" path="/smartsockets/external/jstun-0.6.1.jar"/>
 	<classpathentry kind="lib" path="/smartsockets/external/juds-0.94-universal.jar"/>
@@ -15,8 +12,12 @@
 	<classpathentry kind="lib" path="/smartsockets/external/trilead-ssh2-r13339-CJ.jar"/>
 	<classpathentry kind="lib" path="/smartsockets/external/jmdns-3.4.0.jar"/>
 	<classpathentry excluding="ibis/smartsockets/viz/" kind="src" path="smartsockets_src"/>
+	<classpathentry kind="lib" path="external/jsch-0.1.44-1.jar"/>
 	<classpathentry kind="src" path="org.eclipse.jgit_src"/>
 	<classpathentry kind="src" path="org.eclipse.jgit_resources"/>
-	<classpathentry kind="lib" path="external/jsch-0.1.44-1.jar"/>
+	<classpathentry kind="src" path="slf4android_src"/>
+	<classpathentry kind="lib" path="/slf4android/external/slf4j-1.6.2/slf4j-api-1.6.2.jar"/>
+	<classpathentry kind="lib" path="external/jackson-core-asl-1.7.3.jar"/>
+	<classpathentry kind="lib" path="external/jackson-mapper-asl-1.7.3.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
