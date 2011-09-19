@@ -401,9 +401,9 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		}
 	}
 
-    private boolean hasParent(final UriMatch result, final EntityInfo entityInfo) {
-        return result.parentEntityIdentifiers != null && entityInfo.parentEntity != null;
-    }
+	private boolean hasParent(final UriMatch result, final EntityInfo entityInfo) {
+		return result.parentEntityIdentifiers != null && entityInfo.parentEntity != null;
+	}
 
 	@Override
 	public int update(Uri uri, ContentValues values, String where, String[] whereArgs)
@@ -458,12 +458,12 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		boolean hasEntityId = result.entityIdentifier != null;
 		boolean hasWhere =  !TextUtils.isEmpty(where);
 		String ret =
-			(hasParentId ? PARENT_COLUMN_PREFIX + entityInfo.parentEntity.key.get(0).fieldName + "=?" : "") +
-			(hasParentId && hasEntityId ? " AND " : "") +
-			(hasEntityId ? entityInfo.key.get(0).fieldName + "=?" : "") +
-			(hasWhere ?
-					(hasEntityId || hasParentId ? " AND (" + where + ')' : where )
-					: "");
+				(hasParentId ? PARENT_COLUMN_PREFIX + entityInfo.parentEntity.key.get(0).fieldName + "=?" : "") +
+				(hasParentId && hasEntityId ? " AND " : "") +
+				(hasEntityId ? entityInfo.key.get(0).fieldName + "=?" : "") +
+				(hasWhere ?
+						(hasEntityId || hasParentId ? " AND (" + where + ')' : where )
+						: "");
 		return ret;
 	}
 
@@ -525,6 +525,8 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 				cleanValues.put(cleanName, (Float)value);
 			} else if (value instanceof Integer ) {
 				cleanValues.put(cleanName, (Integer)value);
+			}else if (value instanceof Long ) {
+				cleanValues.put(cleanName, (Long)value);
 			} else if (value instanceof Short ) {
 				cleanValues.put(cleanName, (Short)value);
 			} else if (value instanceof String ) {
