@@ -1,5 +1,7 @@
 package interdroid.vdb.content.avro;
 
+import java.io.IOException;
+
 import org.apache.avro.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,13 +32,13 @@ public class AvroContentProvider extends GenericContentProvider {
 		schema_ = schema;
 	}
 
-    private static Metadata makeMetadata(Schema schema) {
-    	return new AvroMetadata(schema);
+	private static Metadata makeMetadata(Schema schema) {
+		return new AvroMetadata(schema);
 	}
 
 	public AvroContentProvider(String schema) {
-    	this(Schema.parse(schema));
-    }
+		this(Schema.parse(schema));
+	}
 
 	public VdbInitializer buildInitializer() {
 		logger.debug("Building initializer.");
@@ -50,7 +52,11 @@ public class AvroContentProvider extends GenericContentProvider {
 		// Make sure we are registered.
 		logger.debug("attachInfo");
 		logger.debug("Registering schema: {}", schema_.getName());
-		AvroProviderRegistry.registerSchema(context, schema_);
+		try {
+			AvroProviderRegistry.registerSchema(context, schema_);
+		} catch (IOException e) {
+			logger.error("Unexpected exception registering", e);
+		}
 		logger.debug("Schema registered.");
 	}
 }

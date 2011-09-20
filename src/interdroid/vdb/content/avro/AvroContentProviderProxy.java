@@ -1,5 +1,7 @@
 package interdroid.vdb.content.avro;
 
+import java.io.IOException;
+
 import interdroid.vdb.content.ContentChangeHandler;
 import interdroid.vdb.content.EntityUriMatcher;
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
@@ -76,8 +78,12 @@ public class AvroContentProviderProxy extends ContentProvider {
 		// Make sure we are registered.
 		logger.debug("attachInfo");
 		logger.debug("Registering schema: {}", schema_.getName());
-		AvroProviderRegistry.registerSchema(context, schema_);
-		logger.debug("Schema registered.");
+		try {
+			AvroProviderRegistry.registerSchema(context, schema_);
+			logger.debug("Schema registered.");
+		} catch (IOException e) {
+			logger.error("Unexpected error registering schema!", e);
+		}
 		super.attachInfo(context, info);
 	}
 

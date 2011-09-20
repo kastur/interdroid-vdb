@@ -119,7 +119,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		return result;
 	}
 
-	public static void registerSchema(Context context, Schema schema) {
+	public static void registerSchema(Context context, Schema schema) throws IOException {
 		// Have we already registered?
 		Cursor c = null;
 		try {
@@ -137,6 +137,9 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 					values.put(KEY_NAME, schema.getName());
 					values.put(KEY_NAMESPACE, schema.getNamespace());
 					context.getContentResolver().insert(URI, values);
+					// Register this schema as a provider
+					new VdbProviderRegistry(context).registerRepository(
+							new RepositoryConf(schema.getNamespace(), schema.toString()));
 				} else {
 					// Do we need to update the schema then?
 					logger.debug("Checking if we need to update.");
