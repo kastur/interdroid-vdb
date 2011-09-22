@@ -29,10 +29,10 @@ More information can be found on the Interdroid project website:
 
 The latest source repository tree is accessible through Git at:
 
-git@github.com:interdroid/Interdroid-Versioned-Databases.git
+git@github.com:interdroid/interdroid-vdb
 
 You can send bug reports, feature requests, cries for help, or descriptions of 
-interesting way in which you have used SmartSockets to: palmer at cs.vu.nl 
+interesting way in which you have used this project to: palmer at cs.vu.nl 
 
 Legal stuff:
 ------------
@@ -48,5 +48,4 @@ This is free software. See the file "LICENSE.txt" for copying permissions.
 This software contains components from several other open source projects.
 Jars from these projects are stored in the "external" directory along
 with licenses for each of these projects.
-
 
