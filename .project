@@ -52,10 +52,5 @@
 			<type>2</type>
 			<locationURI>_android_slf4android_eb6193e8/src</locationURI>
 		</link>
-		<link>
-			<name>smartsockets_src</name>
-			<type>2</type>
-			<locationURI>_android_smartsockets_8fed577/src</locationURI>
-		</link>
 	</linkedResources>
 </projectDescription>
