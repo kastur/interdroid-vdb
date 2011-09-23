@@ -1,7 +1,5 @@
 package interdroid.vdb;
 
-import android.content.Intent;
-
 /**
  * This class holds constants for triggering actions in the vdb-ui package.
  * It has to live here due to the way the android tools structure Library
