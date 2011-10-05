@@ -2,11 +2,17 @@ package interdroid.vdb.content;
 
 import java.util.List;
 
+import interdroid.vdb.Authority;
 import interdroid.vdb.content.EntityUriMatcher.MatchType;
 
 import android.net.Uri;
 
 public class EntityUriBuilder {
+
+	public static Uri nativeUri(String authority, String entity) {
+		return Uri.withAppendedPath(repositoryUri(authority, authority),
+				MatchType.LOCAL_BRANCH.shortString_ +"/master/" + entity);
+	}
 
 	public static Uri repositoryUri(String authority, String repoName)
 	{
@@ -37,6 +43,19 @@ public class EntityUriBuilder {
 	{
 		return Uri.withAppendedPath(repositoryUri(authority, repoName),
 				MatchType.COMMIT.shortString_ + "/" + sha1);
+	}
+
+	public static Uri toInternal(Uri uri) {
+		Uri.Builder builder = uri.buildUpon();
+		List<String> path = uri.getPathSegments();
+		StringBuffer pathString = new StringBuffer();
+		pathString.append("/");
+		pathString.append(uri.getAuthority());
+		pathString.append(uri.getPath());
+		builder.authority(Authority.VDB);
+		builder.path(pathString.toString());
+
+		return builder.build();
 	}
 
 	public static Uri toNative(Uri uri) {

@@ -4,9 +4,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import interdroid.vdb.Authority;
 import interdroid.vdb.content.EntityUriBuilder;
 import interdroid.vdb.content.VdbConfig.RepositoryConf;
-import interdroid.vdb.content.VdbMainContentProvider;
 import interdroid.vdb.content.VdbProviderRegistry;
 import interdroid.vdb.content.metadata.DatabaseFieldType;
 import interdroid.vdb.content.orm.DbEntity;
@@ -47,7 +47,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		public static final String DEFAULT_SORT_ORDER = "modified DESC";
 
 		public static final Uri CONTENT_URI =
-			Uri.withAppendedPath(EntityUriBuilder.branchUri(VdbMainContentProvider.AUTHORITY, AvroProviderRegistry.NAMESPACE, "master"), AvroProviderRegistry.NAME);
+			Uri.withAppendedPath(EntityUriBuilder.branchUri(Authority.VDB, AvroProviderRegistry.NAMESPACE, "master"), AvroProviderRegistry.NAME);
 
 		@DbField(isID=true, dbType=DatabaseFieldType.INTEGER)
 		public static final String _ID = "_id";
@@ -69,7 +69,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		super(NAMESPACE, RegistryConf.class);
 	}
 
-	public static final Uri URI = Uri.withAppendedPath(EntityUriBuilder.branchUri(VdbMainContentProvider.AUTHORITY,
+	public static final Uri URI = Uri.withAppendedPath(EntityUriBuilder.branchUri(Authority.VDB,
 			NAMESPACE, "master"), NAME);
 
 	public List<RepositoryConf> getAllRepositories() {
@@ -173,7 +173,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		Cursor c = null;
 		try {
 			c = context.getContentResolver().query(
-					EntityUriBuilder.branchUri(VdbMainContentProvider.AUTHORITY, currentSchema.getNamespace(),
+					EntityUriBuilder.branchUri(Authority.VDB, currentSchema.getNamespace(),
 							"master/" + currentSchema.getName()), new String[] {"_id"}, null, null, null);
 		} finally {
 			try {
@@ -190,6 +190,11 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		Cursor c = null;
 		Schema schema = null;
 		try {
+			// We expect to deal with internal paths
+			if (!Authority.VDB.equals(uri.getAuthority())) {
+				logger.debug("Mapping to native: {}", uri);
+				uri = EntityUriBuilder.toInternal(uri);
+			}
 			logger.debug("Querying for schema for: {} {}", uri, uri.getPathSegments().get(0));
 			c = context.getContentResolver().query(URI, new String[]{KEY_SCHEMA}, KEY_NAMESPACE + "=?", new String[] {uri.getPathSegments().get(0)}, null);
 			if (c != null && c.moveToFirst()) {

@@ -1,5 +1,7 @@
 package interdroid.vdb;
 
+import android.content.Intent;
+
 /**
  * This class holds constants for triggering actions in the vdb-ui package.
  * It has to live here due to the way the android tools structure Library
@@ -79,5 +81,9 @@ public final class Actions {
 
 	/** Initialize a database **/
     public static final String ACTION_INIT_DB = "interdroid.vdb.INIT_DB";
+
+    /** Register an avro schema **/
+	public static final String REGISTER_SCHEMA	=
+			"interdroid.vdb.REGISTER_SCHEMA";
 
 }

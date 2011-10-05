@@ -1,5 +1,6 @@
 package interdroid.vdb.content;
 
+import interdroid.vdb.Authority;
 import interdroid.vdb.content.EntityUriMatcher.MatchType;
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.content.VdbConfig.RepositoryConf;
@@ -25,7 +26,7 @@ import android.net.Uri;
 public class VdbProviderRegistry {
 	private static final Logger logger = LoggerFactory.getLogger(VdbProviderRegistry.class);
 
-	private static final String BASE_TYPE = "vnd." + VdbMainContentProvider.AUTHORITY;
+	private static final String BASE_TYPE = "vnd." + Authority.VDB;
 
 	private final Context context_;
 

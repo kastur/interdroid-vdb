@@ -1,6 +1,8 @@
 package interdroid.vdb.content;
 
 
+import interdroid.vdb.Authority;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
@@ -211,7 +213,7 @@ public class EntityUriMatcher {
 
 		ListIterator<String> pathIterator = uri.getPathSegments().listIterator();
 
-		if (match.authority.equals(VdbMainContentProvider.AUTHORITY)) {
+		if (match.authority.equals(Authority.VDB)) {
 			match.repositoryName = pathIterator.next();
 			match.isNative = false;
 		} else {

@@ -1,5 +1,7 @@
 package interdroid.vdb.content;
 
+import interdroid.vdb.Authority;
+
 import java.io.IOException;
 
 import org.slf4j.Logger;
@@ -15,7 +17,10 @@ import android.net.Uri;
 public class VdbMainContentProvider extends ContentProvider {
 	private static final Logger logger = LoggerFactory.getLogger(VdbMainContentProvider.class);
 
-	public static final String AUTHORITY = VdbMainContentProvider.class.getPackage().getName().toLowerCase();
+	/**
+	 * @deprecated Use {@link Authority#VDB} instead
+	 */
+	public static final String AUTHORITY = Authority.VDB;
 
 	private VdbProviderRegistry registry_;
 
