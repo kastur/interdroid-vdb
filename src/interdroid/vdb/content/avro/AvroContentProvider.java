@@ -53,7 +53,7 @@ public class AvroContentProvider extends GenericContentProvider {
 		logger.debug("attachInfo");
 		logger.debug("Registering schema: {}", schema_.getName());
 		try {
-			AvroProviderRegistry.registerSchema(context, schema_);
+			AvroSchemaRegistrationHandler.registerSchema(context, schema_);
 		} catch (IOException e) {
 			logger.error("Unexpected exception registering", e);
 		}

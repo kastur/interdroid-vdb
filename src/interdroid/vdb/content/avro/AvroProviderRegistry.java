@@ -26,17 +26,9 @@ import android.net.Uri;
 public class AvroProviderRegistry extends ORMGenericContentProvider {
 	private static final Logger logger = LoggerFactory.getLogger(AvroProviderRegistry.class);
 
-	public static final String NAME = "schema_registry";
-	public static final String NAMESPACE = "interdroid.vdb.content.avro";
-	public static final String FULL_NAME = NAMESPACE + "." + NAME;
-
-	public static final String KEY_SCHEMA = "schema";
-	public static final String KEY_NAME = "name";
-	public static final String KEY_NAMESPACE = "namespace";
-
-	@DbEntity(name=NAME,
-			itemContentType = "vnd.android.cursor.item/" + FULL_NAME,
-			contentType = "vnd.android.cursor.dir/" + FULL_NAME)
+	@DbEntity(name=AvroSchemaRegistrationHandler.NAME,
+			itemContentType = "vnd.android.cursor.item/" + AvroSchemaRegistrationHandler.FULL_NAME,
+			contentType = "vnd.android.cursor.dir/" + AvroSchemaRegistrationHandler.FULL_NAME)
 	public static class RegistryConf {
 		// Don't allow instantiation
 		private RegistryConf() {}
@@ -47,39 +39,36 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		public static final String DEFAULT_SORT_ORDER = "modified DESC";
 
 		public static final Uri CONTENT_URI =
-			Uri.withAppendedPath(EntityUriBuilder.branchUri(Authority.VDB, AvroProviderRegistry.NAMESPACE, "master"), AvroProviderRegistry.NAME);
+			Uri.withAppendedPath(EntityUriBuilder.branchUri(Authority.VDB, AvroSchemaRegistrationHandler.NAMESPACE, "master"), AvroSchemaRegistrationHandler.NAME);
 
 		@DbField(isID=true, dbType=DatabaseFieldType.INTEGER)
 		public static final String _ID = "_id";
 
 		@DbField(dbType=DatabaseFieldType.TEXT)
-		public static final String NAME = KEY_NAME;
+		public static final String NAME = AvroSchemaRegistrationHandler.KEY_NAME;
 
 		@DbField(dbType=DatabaseFieldType.TEXT)
-		public static final String NAMESPACE = KEY_NAMESPACE;
+		public static final String NAMESPACE = AvroSchemaRegistrationHandler.KEY_NAMESPACE;
 
 		@DbField(dbType=DatabaseFieldType.TEXT)
-		public static final String SCHEMA = KEY_SCHEMA;
+		public static final String SCHEMA = AvroSchemaRegistrationHandler.KEY_SCHEMA;
 
 	}
 
 	private Context mContext;
 
 	public AvroProviderRegistry() {
-		super(NAMESPACE, RegistryConf.class);
+		super(AvroSchemaRegistrationHandler.NAMESPACE, RegistryConf.class);
 	}
-
-	public static final Uri URI = Uri.withAppendedPath(EntityUriBuilder.branchUri(Authority.VDB,
-			NAMESPACE, "master"), NAME);
 
 	public List<RepositoryConf> getAllRepositories() {
 		Cursor c = null;
 		ArrayList<RepositoryConf> result = new ArrayList<RepositoryConf>();
 		try {
-			c = query(URI, new String[]{KEY_NAMESPACE, KEY_SCHEMA}, null, null, null);
+			c = query(AvroSchemaRegistrationHandler.URI, new String[]{AvroSchemaRegistrationHandler.KEY_NAMESPACE, AvroSchemaRegistrationHandler.KEY_SCHEMA}, null, null, null);
 			if (c != null) {
-				int namespaceIndex = c.getColumnIndex(KEY_NAMESPACE);
-				int schemaIndex = c.getColumnIndex(KEY_SCHEMA);
+				int namespaceIndex = c.getColumnIndex(AvroSchemaRegistrationHandler.KEY_NAMESPACE);
+				int schemaIndex = c.getColumnIndex(AvroSchemaRegistrationHandler.KEY_SCHEMA);
 				while (c.moveToNext()) {
 					result.add(new RepositoryConf(c.getString(namespaceIndex), c.getString(schemaIndex)));
 				}
@@ -104,14 +93,28 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 	}
 
 	@Override
+	public int update(Uri uri, ContentValues values, String where, String[] whereArgs) {
+		int ret = super.update(uri, values, where, whereArgs);
+		migrateDb(values.getAsString(AvroSchemaRegistrationHandler.KEY_SCHEMA));
+		return ret;
+	}
+
+	@Override
 	public Uri insert(Uri uri, ContentValues userValues)
 	{
 		Uri result = super.insert(uri, userValues);
 
+
+
 		VdbProviderRegistry registry;
 		try {
 			registry = new VdbProviderRegistry(mContext);
-			registry.registerRepository(new RepositoryConf(userValues.getAsString(KEY_NAMESPACE), userValues.getAsString(KEY_SCHEMA)));
+			registry.registerRepository(
+					new RepositoryConf(
+							userValues.getAsString(
+								AvroSchemaRegistrationHandler.KEY_NAMESPACE),
+							userValues.getAsString(
+								AvroSchemaRegistrationHandler.KEY_SCHEMA)));
 		} catch (IOException e) {
 			throw new RuntimeException("Unable to build registry: ", e);
 		}
@@ -119,65 +122,17 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		return result;
 	}
 
-	public static void registerSchema(Context context, Schema schema) throws IOException {
-		// Have we already registered?
+	private void migrateDb(String schemaString) {
+		// TODO: Finish implemnting this
 		Cursor c = null;
+		Schema schema = Schema.parse(schemaString);
 		try {
-			logger.debug("Checking for registration of {}", schema.getName());
-			logger.debug("Querying against URI: {}", URI);
-			c = context.getContentResolver().query(URI,
-					new String[] {KEY_SCHEMA},
-					KEY_NAME +" = ?", new String[] {schema.getName()}, null);
-			logger.debug("Got cursor: {}", c);
-			if (c != null) {
-				if (c.getCount() == 0) {
-					logger.debug("Not already registered.");
-					ContentValues values = new ContentValues();
-					values.put(KEY_SCHEMA, schema.toString());
-					values.put(KEY_NAME, schema.getName());
-					values.put(KEY_NAMESPACE, schema.getNamespace());
-					context.getContentResolver().insert(URI, values);
-					// Register this schema as a provider
-					new VdbProviderRegistry(context).registerRepository(
-							new RepositoryConf(schema.getNamespace(), schema.toString()));
-				} else {
-					// Do we need to update the schema then?
-					logger.debug("Checking if we need to update.");
-					c.moveToFirst();
-					Schema currentSchema = Schema.parse(c.getString(c.getColumnIndex(KEY_SCHEMA)));
-					if (! schema.equals(currentSchema)) {
-						logger.debug("Update required.");
-
-						migrateDb(context, currentSchema, schema);
-
-						ContentValues values = new ContentValues();
-						values.put(KEY_SCHEMA, schema.toString());
-						context.getContentResolver().update(URI,
-								values, KEY_NAME +" = ?", new String[]{AvroProviderRegistry.KEY_NAME});
-					}
-				}
-			} else {
-				logger.error("Unexpected error registering schema");
-				throw new RuntimeException("Unable to query Schema Registry!");
-			}
-		} finally {
-			if (c != null) {
-				c.close();
-			}
-		}
-		logger.debug("Schema registration complete.");
-	}
-
-	private static void migrateDb(Context context, Schema currentSchema,
-			Schema schema) {
-		Cursor c = null;
-		try {
-			c = context.getContentResolver().query(
-					EntityUriBuilder.branchUri(Authority.VDB, currentSchema.getNamespace(),
-							"master/" + currentSchema.getName()), new String[] {"_id"}, null, null, null);
+			c = getContext().getContentResolver().query(
+					EntityUriBuilder.branchUri(Authority.VDB, schema.getNamespace(),
+							"master/" + schema.getName()), new String[] {"_id"}, null, null, null);
 		} finally {
 			try {
-				if (c == null) {
+				if (c != null) {
 					c.close();
 				}
 			} catch (Exception e) {
@@ -196,9 +151,9 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 				uri = EntityUriBuilder.toInternal(uri);
 			}
 			logger.debug("Querying for schema for: {} {}", uri, uri.getPathSegments().get(0));
-			c = context.getContentResolver().query(URI, new String[]{KEY_SCHEMA}, KEY_NAMESPACE + "=?", new String[] {uri.getPathSegments().get(0)}, null);
+			c = context.getContentResolver().query(AvroSchemaRegistrationHandler.URI, new String[]{AvroSchemaRegistrationHandler.KEY_SCHEMA}, AvroSchemaRegistrationHandler.KEY_NAMESPACE + "=?", new String[] {uri.getPathSegments().get(0)}, null);
 			if (c != null && c.moveToFirst()) {
-				int schemaIndex = c.getColumnIndex(KEY_SCHEMA);
+				int schemaIndex = c.getColumnIndex(AvroSchemaRegistrationHandler.KEY_SCHEMA);
 				String schemaString = c.getString(schemaIndex);
 				logger.debug("Got schema: {}", schemaString);
 				schema = Schema.parse(schemaString);

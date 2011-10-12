@@ -6,6 +6,7 @@ import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.content.VdbConfig.RepositoryConf;
 import interdroid.vdb.content.avro.AvroContentProvider;
 import interdroid.vdb.content.avro.AvroProviderRegistry;
+import interdroid.vdb.content.avro.AvroSchemaRegistrationHandler;
 import interdroid.vdb.persistence.api.VdbInitializer;
 import interdroid.vdb.persistence.api.VdbRepository;
 import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
@@ -56,7 +57,7 @@ public class VdbProviderRegistry {
 			initializeAll(config.getRepositories());
 
 			logger.debug("Initializing Avro Repos.");
-			List<RepositoryConf> infos = ((AvroProviderRegistry)get(AvroProviderRegistry.URI)).getAllRepositories();
+			List<RepositoryConf> infos = ((AvroProviderRegistry)get(AvroSchemaRegistrationHandler.URI)).getAllRepositories();
 			initializeAll(infos);
 			logger.debug("All repositories registered.");
 		}

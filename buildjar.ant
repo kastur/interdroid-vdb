@@ -7,6 +7,7 @@
 		    <include name="**/Actions.class"/>
 		    <include name="**/Authority.class"/>
 		    <include name="**/AvroContentProviderProxy*.class"/>
+			<include name="**/AvroSchemaRegistrationHandler*.class"/>
 		    <include name="**/ContentChangeHandler*.class"/>
 		</jar>
 	</target>
