@@ -27,8 +27,10 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 	private static final Logger logger = LoggerFactory.getLogger(AvroProviderRegistry.class);
 
 	@DbEntity(name=AvroSchemaRegistrationHandler.NAME,
-			itemContentType = "vnd.android.cursor.item/" + AvroSchemaRegistrationHandler.FULL_NAME,
-			contentType = "vnd.android.cursor.dir/" + AvroSchemaRegistrationHandler.FULL_NAME)
+			itemContentType = "vnd.android.cursor.item/"
+	+ AvroSchemaRegistrationHandler.FULL_NAME,
+			contentType = "vnd.android.cursor.dir/"
+	+ AvroSchemaRegistrationHandler.FULL_NAME)
 	public static class RegistryConf {
 		// Don't allow instantiation
 		private RegistryConf() {}
@@ -39,19 +41,24 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 		public static final String DEFAULT_SORT_ORDER = "modified DESC";
 
 		public static final Uri CONTENT_URI =
-			Uri.withAppendedPath(EntityUriBuilder.branchUri(Authority.VDB, AvroSchemaRegistrationHandler.NAMESPACE, "master"), AvroSchemaRegistrationHandler.NAME);
+			Uri.withAppendedPath(EntityUriBuilder.branchUri(
+					Authority.VDB, AvroSchemaRegistrationHandler.NAMESPACE,
+					"master"), AvroSchemaRegistrationHandler.NAME);
 
 		@DbField(isID=true, dbType=DatabaseFieldType.INTEGER)
 		public static final String _ID = "_id";
 
 		@DbField(dbType=DatabaseFieldType.TEXT)
-		public static final String NAME = AvroSchemaRegistrationHandler.KEY_NAME;
+		public static final String NAME =
+			AvroSchemaRegistrationHandler.KEY_NAME;
 
 		@DbField(dbType=DatabaseFieldType.TEXT)
-		public static final String NAMESPACE = AvroSchemaRegistrationHandler.KEY_NAMESPACE;
+		public static final String NAMESPACE =
+			AvroSchemaRegistrationHandler.KEY_NAMESPACE;
 
 		@DbField(dbType=DatabaseFieldType.TEXT)
-		public static final String SCHEMA = AvroSchemaRegistrationHandler.KEY_SCHEMA;
+		public static final String SCHEMA =
+			AvroSchemaRegistrationHandler.KEY_SCHEMA;
 
 	}
 
