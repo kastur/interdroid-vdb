@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <project name="vdb" default="jar">
 	<target name="jar">
-		<jar destfile="vdb.jar" basedir="bin">
+		<jar destfile="vdb.jar" basedir="bin/classes">
 		    <include name="**/EntityUriBuilder*.class"/>
 		    <include name="**/EntityUriMatcher*.class"/>
 		    <include name="**/Actions.class"/>

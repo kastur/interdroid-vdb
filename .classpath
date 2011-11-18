@@ -12,11 +12,11 @@
 	<classpathentry kind="lib" path="/smartsockets/external/trilead-ssh2-r13339-CJ.jar"/>
 	<classpathentry kind="lib" path="/smartsockets/external/jmdns-3.4.0.jar"/>
 	<classpathentry kind="lib" path="external/jsch-0.1.44-1.jar"/>
-	<classpathentry kind="src" path="slf4android_src"/>
-	<classpathentry kind="lib" path="/slf4android/external/slf4j-1.6.2/slf4j-api-1.6.2.jar"/>
 	<classpathentry kind="lib" path="external/jackson-core-asl-1.7.3.jar"/>
 	<classpathentry kind="lib" path="external/jackson-mapper-asl-1.7.3.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/org.eclipse.jgit"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/smartsockets"/>
-	<classpathentry kind="output" path="bin"/>
+	<classpathentry kind="con" path="com.android.ide.eclipse.adt.LIBRARIES"/>
+	<classpathentry kind="lib" path="/slf4android/external/slf4j-1.6.2/slf4j-api-1.6.2.jar" sourcepath="/slf4android/external/slf4j-1.6.2"/>
+	<classpathentry kind="output" path="bin/classes"/>
 </classpath>
