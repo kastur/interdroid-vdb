@@ -19,17 +19,27 @@ import java.nio.CharBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.eclipse.jgit.api.AddCommand;
+import org.eclipse.jgit.api.CommitCommand;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.ConcurrentRefUpdateException;
+import org.eclipse.jgit.api.errors.JGitInternalException;
+import org.eclipse.jgit.api.errors.NoFilepatternException;
+import org.eclipse.jgit.api.errors.NoHeadException;
+import org.eclipse.jgit.api.errors.NoMessageException;
+import org.eclipse.jgit.api.errors.WrongRepositoryStateException;
+import org.eclipse.jgit.dircache.DirCache;
+import org.eclipse.jgit.dircache.DirCacheBuilder;
 import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.CommitBuilder;
 import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.GitIndex;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectInserter;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.lib.GitIndex.Entry;
+import org.eclipse.jgit.revwalk.RevCommit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,19 +89,6 @@ public class VdbCheckoutImpl implements VdbCheckout {
 		loadMergeInfo();
 	}
 
-    private void clearIndex(GitIndex idx)
-    {
-    	try {
-	    	for (Entry e : idx.getMembers()) {
-	    		if (!idx.remove(null, new File(e.getName()))) {
-	    			throw new IOException("Could not remove entry " + e.getName());
-	    		}
-	    	}
-    	} catch(IOException e) {
-    		throw new RuntimeException("Could clear index.", e);
-    	}
-    }
-
 	@Override
 	public synchronized void commit(String authorName, String authorEmail, String msg)
 			throws IOException, MergeInProgressException
@@ -122,42 +119,29 @@ public class VdbCheckoutImpl implements VdbCheckout {
 	private synchronized void commitImpl(String authorName, String authorEmail, String msg)
 			throws IOException, MergeInProgressException
 	{
-		GitIndex index = new GitIndex(gitRepo_);
-		clearIndex(index);
-		index.add(checkoutDir_, new File(checkoutDir_, SQLITEDB));
-		index.add(checkoutDir_, new File(checkoutDir_, SCHEMA_FILE));
-		ObjectId newTreeId = index.writeTree();
 
-		CommitBuilder commit = new CommitBuilder();
-		commit.setCommitter(new PersonIdent(authorName, authorEmail));
-		commit.setAuthor(new PersonIdent(authorName, authorEmail));
-		commit.setTreeId(newTreeId);
-		commit.setMessage(msg);
-
-		Ref ref = gitRepo_.getRef(BRANCH_REF_PREFIX + checkoutName_);
-		if (ref != null && ref.getObjectId() != null) {
-			if (mergeInfo_ != null) {
-				// this is a merge commit with  two parents
-				commit.setParentIds(new ObjectId[] {
-						ref.getObjectId(),
-						ObjectId.fromString(mergeInfo_.theirCommit_)});
-			} else {
-				commit.setParentIds(new ObjectId[] { ref.getObjectId() });
-			}
-		} else {
-			commit.setParentIds(new ObjectId[0]);
+		if (mergeInfo_ != null && !mergeInfo_.resolved_) {
+			throw new MergeInProgressException();
 		}
 
-		ObjectInserter writer = gitRepo_.newObjectInserter();
-		ObjectId commitId = writer.insert(commit);
-
-		final RefUpdate ru = gitRepo_
-				.updateRef(BRANCH_REF_PREFIX + checkoutName_);
-		ru.setNewObjectId(commitId);
-		ru.disableRefLog();
-		if (ru.forceUpdate() == RefUpdate.Result.LOCK_FAILURE) {
-			throw new IOException("Error updating reference for branch "
-					+ checkoutName_);
+		Git git = new Git(gitRepo_);
+		CommitCommand commit = git.commit();
+		AddCommand add = git.add();
+		add.addFilepattern(SQLITEDB);
+		add.addFilepattern(SCHEMA_FILE);
+		try {
+			add.call();
+		} catch (NoFilepatternException e) {
+			throw new IOException();
+		}
+		PersonIdent author = new PersonIdent(authorName, authorEmail);
+		commit.setAuthor(author);
+		commit.setCommitter(author);
+		RevCommit revision;
+		try {
+			revision = commit.call();
+		} catch (Exception e) {
+			throw new IOException();
 		}
 
 		if (mergeInfo_ != null) {
@@ -169,7 +153,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 
 		if (logger.isDebugEnabled())
 			logger.debug("Succesfully committed revision "
-				+ commitId.toString() + " on branch "
+				+ revision.getName().toString() + " on branch "
 				+ checkoutName_);
 	}
 
