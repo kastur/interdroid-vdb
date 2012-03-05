@@ -6,6 +6,10 @@ import interdroid.vdb.content.VdbProviderRegistry;
 import interdroid.vdb.content.VdbConfig.RepositoryConf;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.slf4j.Logger;
@@ -34,6 +38,37 @@ public class AvroSchemaRegistrationHandler {
 
 	public static final Uri URI = Uri.withAppendedPath(EntityUriBuilder.branchUri(Authority.VDB,
 			NAMESPACE, "master"), NAME);
+
+	public static List<Map<String, Object>> getAllRepositories(Context context) {
+		Cursor c = null;
+		List<Map<String, Object>> result = new ArrayList<Map<String,Object>>();
+		try {
+			c = context.getContentResolver().query(URI,null,
+					null, null, KEY_NAMESPACE + " ASC, " + KEY_NAME + " ASC");
+			if (c != null) {
+				LOG.debug("Cursor has: {}", c.getCount());
+				c.moveToFirst();
+				int name = c.getColumnIndex(KEY_NAME);
+				int namespace = c.getColumnIndex(KEY_NAMESPACE);
+				int schema = c.getColumnIndex(KEY_SCHEMA);
+
+				do {
+					Map<String, Object> map = new HashMap<String, Object>();
+					map.put(KEY_NAME, c.getString(name));
+					map.put(KEY_NAMESPACE, c.getString(namespace));
+					map.put(KEY_SCHEMA, c.getString(schema));
+					result.add(map);
+					c.moveToNext();
+				} while (!c.isAfterLast());
+			}
+		} finally {
+			if (c != null) {
+				c.close();
+			}
+		}
+		LOG.debug("Returning {} repository", result.size());
+		return result;
+	}
 
 	public static void registerSchema(Context context, Schema schema) throws IOException {
 		// Have we already registered?

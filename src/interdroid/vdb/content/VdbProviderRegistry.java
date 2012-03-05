@@ -53,8 +53,12 @@ public class VdbProviderRegistry {
 
 		if (repoInfos_.size() == 0) {
 			logger.debug("Initializing static repositories.");
-			VdbConfig config = new VdbConfig(context);
-			initializeAll(config.getRepositories());
+			try {
+				VdbConfig config = new VdbConfig(context);
+				initializeAll(config.getRepositories());
+			} catch (Exception e) {
+				// Ignore.
+			}
 
 			logger.debug("Initializing Avro Repos.");
 			List<RepositoryConf> infos = ((AvroProviderRegistry)get(AvroSchemaRegistrationHandler.URI)).getAllRepositories();

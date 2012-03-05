@@ -5,6 +5,7 @@ import java.io.IOException;
 import interdroid.vdb.Actions;
 import interdroid.vdb.Authority;
 import interdroid.vdb.content.ContentChangeHandler;
+import interdroid.vdb.content.CrossProcessCursorWrapper;
 import interdroid.vdb.content.EntityUriMatcher;
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 
@@ -20,10 +21,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.ProviderInfo;
-import android.database.CrossProcessCursor;
 import android.database.Cursor;
-import android.database.CursorWindow;
-import android.database.CursorWrapper;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -100,59 +98,6 @@ public class AvroContentProviderProxy extends ContentProvider {
 			logger.error("Caught IOException while registering.", e);
 		}
 
-	}
-
-	private class CrossProcessCursorWrapper extends CursorWrapper
-		implements CrossProcessCursor {
-
-		public CrossProcessCursorWrapper(Cursor cursor) {
-			super(cursor);
-		}
-
-		@Override
-		public CursorWindow getWindow() {
-			return null;
-		}
-
-		@Override
-		public void fillWindow(int position, CursorWindow window) {
-			if (position < 0 || position > getCount()) {
-				return;
-			}
-			window.acquireReference();
-			try {
-				moveToPosition(position - 1);
-				window.clear();
-				window.setStartPosition(position);
-				int columnNum = getColumnCount();
-				window.setNumColumns(columnNum);
-				while (moveToNext() && window.allocRow()) {
-					for (int i = 0; i < columnNum; i++) {
-						String field = getString(i);
-						if (field != null) {
-							if (!window.putString(field, getPosition(), i)) {
-								window.freeLastRow();
-								break;
-							}
-						} else {
-							if (!window.putNull(getPosition(), i)) {
-								window.freeLastRow();
-								break;
-							}
-						}
-					}
-				}
-			} catch (IllegalStateException e) {
-				logger.error("Exception with wrapped cursor", e);
-			} finally {
-				window.releaseReference();
-			}
-		}
-
-		@Override
-		public boolean onMove(int oldPosition, int newPosition) {
-			return true;
-		}
 	}
 
 	@Override

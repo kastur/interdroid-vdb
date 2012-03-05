@@ -388,6 +388,9 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 		try {
 			if (logger.isDebugEnabled())
 				logger.debug("Querying with: " + qb.buildQuery(projection, selection, selectionArgs, null, null, sortOrder, null));
+			logger.debug("Projection: " + projection);
+			logger.debug("Selection: " + selection);
+			logger.debug("SelectionArgs: " + selectionArgs);
 			Cursor c = qb.query(db, projection, selection, selectionArgs, null, null, sortOrder);
 			logger.debug("Got cursor: {}", c);
 			if (c != null && getContext() != null) {
@@ -397,6 +400,7 @@ public abstract class GenericContentProvider extends ContentProvider implements 
 			logger.debug("Returning cursor.");
 			return c;
 		} finally {
+			// TODO: Is this release legal here or does the cursor still need it?
 			vdbBranch.releaseDatabase();
 		}
 	}
