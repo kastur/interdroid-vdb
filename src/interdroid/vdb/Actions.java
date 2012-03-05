@@ -1,7 +1,5 @@
 package interdroid.vdb;
 
-import android.content.Intent;
-
 /**
  * This class holds constants for triggering actions in the vdb-ui package.
  * It has to live here due to the way the android tools structure Library
@@ -65,25 +63,25 @@ public final class Actions {
             ACTION_BASE + "MANAGE_REPOSITORIES";
 
     /** Manage peer information action. **/
-	public static final String ACTION_MANAGE_PEER_INFO =
-			ACTION_BASE + "MANAGE_PEER_INFO";
+    public static final String ACTION_MANAGE_PEER_INFO =
+            ACTION_BASE + "MANAGE_PEER_INFO";
 
-	/** Manage local sharing action. **/
-	public static final String ACTION_MANAGE_LOCAL_SHARING =
-			ACTION_BASE + "MANAGE_LOCAL_SHARING";
+    /** Manage local sharing action. **/
+    public static final String ACTION_MANAGE_LOCAL_SHARING =
+            ACTION_BASE + "MANAGE_LOCAL_SHARING";
 
-	/** Manage remote sharing action. **/
-	public static final String ACTION_MANAGE_REMOTE_SHARING =
-			ACTION_BASE + "MANAGE_REMOTE_SHARING";
+    /** Manage remote sharing action. **/
+    public static final String ACTION_MANAGE_REMOTE_SHARING =
+            ACTION_BASE + "MANAGE_REMOTE_SHARING";
 
-	/** The git service. **/
-	public static final String GIT_SERVICE = "interdroid.vdb.GIT_SERVICE";
+    /** The git service. **/
+    public static final String GIT_SERVICE = "interdroid.vdb.GIT_SERVICE";
 
-	/** Initialize a database **/
+    /** Initialize a database. **/
     public static final String ACTION_INIT_DB = "interdroid.vdb.INIT_DB";
 
-    /** Register an avro schema **/
-	public static final String REGISTER_SCHEMA	=
-			"interdroid.vdb.REGISTER_SCHEMA";
+    /** Register an avro schema. **/
+    public static final String REGISTER_SCHEMA =
+            "interdroid.vdb.REGISTER_SCHEMA";
 
 }
