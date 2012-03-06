@@ -10,85 +10,176 @@ import org.xmlpull.v1.XmlPullParserFactory;
 
 import android.content.Context;
 
+/**
+ * A class to represent the configuration for a repository which is
+ * stored in an XML file.
+ *
+ * This file support ORM type repositories and other system internals.
+ *
+ * @author nick &lt;palmer@cs.vu.nl&gt;
+ *
+ */
 public class VdbConfig {
-	private static final String CONFIG_XML = "vdbconfig.xml";
 
-	private final List<RepositoryConf> repositories_ = new ArrayList<RepositoryConf>();
+    /**
+     * The name of the configuration file.
+     */
+    private static final String CONFIG_XML = "vdbconfig.xml";
 
-	public List<RepositoryConf> getRepositories()
-	{
-		return repositories_;
-	}
+    /**
+     * The list of repositories.
+     */
+    private final List<RepositoryConf> repositories =
+            new ArrayList<RepositoryConf>();
 
-	public static class RepositoryConf {
-		String name_;
-		String contentProvider_;
-		String avroSchema_ = null;
+    /**
+     * @return the list of repositories.
+     */
+    public final List<RepositoryConf> getRepositories() {
+        return repositories;
+    }
 
-		private RepositoryConf() {}
+    /**
+     * A class to represent the information for a repository.
+     * This class supports both ORM and Avro based repositories.
+     *
+     * @author nick &lt;palmer@cs.vu.nl&gt;
+     *
+     */
+    public static class RepositoryConf {
+        /**
+         * The name of the repository.
+         */
+        private String mName;
+        /**
+         * The content provider class name for this repository.
+         */
+        private String mContentProvider;
+        /**
+         * The avro schema for the repository if there is one.
+         */
+        private String mAvroSchema = null;
 
-		public RepositoryConf(String name, String contentProvider, String avroSchema) {
-			name_ = name;
-			contentProvider_ = contentProvider;
-			avroSchema_ = avroSchema;
-		}
+        /**
+         * Can only be constructed with no arguments here.
+         */
+        private RepositoryConf() {
+            // Nothing to do. Will be initted in the parser.
+        }
 
-		public RepositoryConf(String name, String avroSchema) {
-			name_ = name;
-			avroSchema_ = avroSchema;
-		}
+        /**
+         * Construct with a name contentProvider and schema.
+         * @param name the name of the repo
+         * @param contentProvider the content provider for the repo
+         * @param avroSchema the avro schema for the repo
+         */
+        public RepositoryConf(final String name, final String contentProvider,
+                final String avroSchema) {
+            mName = name;
+            mContentProvider = contentProvider;
+            mAvroSchema = avroSchema;
+        }
 
-		public static RepositoryConf parseFromStartTag(XmlPullParser xpp)
-		throws XmlPullParserException, IOException
-		{
-			RepositoryConf obj = new RepositoryConf();
+        /**
+         * Construct without a known content provider.
+         * @param name the name of the repository
+         * @param avroSchema the schema for the repository
+         */
+        public RepositoryConf(final String name, final String avroSchema) {
+            mName = name;
+            mAvroSchema = avroSchema;
+        }
 
-			obj.name_ = xpp.getAttributeValue(/* namespace */ null, "name");
-			obj.contentProvider_ = xpp.getAttributeValue(/* namespace */ null,
-					"contentProvider");
-			if (obj.name_ == null || obj.contentProvider_ == null) {
-				throw new XmlPullParserException("Missing mandatory attributes"
-						+ " for repository.");
-			}
-			if (xpp.next() != XmlPullParser.END_TAG) {
-				throw new XmlPullParserException("Expected end tag for Repository."
-						+ "Found " + xpp.getEventType());
-			}
-			return obj;
-		}
-	}
+        /**
+         * Parses a snipit of XML for an ORM repository.
+         *
+         * @param xpp the parser
+         * @return the configuration
+         * @throws XmlPullParserException if the parse fails
+         * @throws IOException if IO fails
+         */
+        public static RepositoryConf parseFromStartTag(final XmlPullParser xpp)
+                throws XmlPullParserException, IOException {
+            RepositoryConf obj = new RepositoryConf();
 
-	public VdbConfig(Context ctx)
-	{
-		try {
-			XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
-			factory.setNamespaceAware(false);
-			XmlPullParser xpp = factory.newPullParser();
-			xpp.setInput(ctx.getAssets().open(CONFIG_XML), null);
+            obj.mName = xpp.getAttributeValue(/* namespace */ null, "name");
+            obj.mContentProvider = xpp.getAttributeValue(/* namespace */ null,
+                    "contentProvider");
+            if (obj.getName() == null || obj.getContentProvider() == null) {
+                throw new XmlPullParserException("Missing mandatory attributes"
+                        + " for repository.");
+            }
+            if (xpp.next() != XmlPullParser.END_TAG) {
+                throw new XmlPullParserException(
+                        "Expected end tag for Repository."
+                        + "Found " + xpp.getEventType());
+            }
+            return obj;
+                }
 
-			int eventType = xpp.getEventType();
-			/* skip root element */
-			while (xpp.getEventType() != XmlPullParser.START_TAG) {
-				eventType = xpp.next();
-			}
-			eventType = xpp.next();
+        /**
+         * @return the Name
+         */
+        public final String getName() {
+            return mName;
+        }
 
-			while (eventType != XmlPullParser.END_DOCUMENT) {
-				switch(eventType) {
-				case XmlPullParser.START_TAG:
-					if ("repository".equals(xpp.getName())) {
-						repositories_.add(RepositoryConf.parseFromStartTag(xpp));
-					} else {
-						throw new XmlPullParserException("Unexpected element type: "
-								+ xpp.getName());
-					}
-				}
-				eventType = xpp.next();
-			}
-		} catch (IOException e) {
-			throw new RuntimeException("Cannot open " + CONFIG_XML, e);
-		} catch (XmlPullParserException e) {
-			throw new RuntimeException("Could not parse " + CONFIG_XML, e);
-		}
-	}
+        /**
+         * @return the ContentProvider
+         */
+        public final String getContentProvider() {
+            return mContentProvider;
+        }
+
+        /**
+         * @return the Avro Schema
+         */
+        public final String getAvroSchema() {
+            return mAvroSchema;
+        }
+
+    }
+
+    /**
+     * Constructs a configuration for the given context, reading the
+     * xml configuration for ORM repositories.
+     *
+     * @param ctx the context to work in.
+     */
+    public VdbConfig(final Context ctx) {
+        try {
+            XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+            factory.setNamespaceAware(false);
+            XmlPullParser xpp = factory.newPullParser();
+            xpp.setInput(ctx.getAssets().open(CONFIG_XML), null);
+
+            int eventType = xpp.getEventType();
+            /* skip root element */
+            while (xpp.getEventType() != XmlPullParser.START_TAG) {
+                eventType = xpp.next();
+            }
+            eventType = xpp.next();
+
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                switch(eventType) {
+                case XmlPullParser.START_TAG:
+                    if ("repository".equals(xpp.getName())) {
+                        repositories.add(
+                                RepositoryConf.parseFromStartTag(xpp));
+                    } else {
+                        throw new XmlPullParserException(
+                                "Unexpected element type: "
+                                        + xpp.getName());
+                    }
+                default:
+                    // ignored
+                }
+                eventType = xpp.next();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Cannot open " + CONFIG_XML, e);
+        } catch (XmlPullParserException e) {
+            throw new RuntimeException("Could not parse " + CONFIG_XML, e);
+        }
+    }
 }

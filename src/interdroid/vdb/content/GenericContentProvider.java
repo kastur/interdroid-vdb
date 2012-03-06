@@ -1,17 +1,13 @@
 package interdroid.vdb.content;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map.Entry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
-import interdroid.vdb.content.metadata.DatabaseFieldType;
 import interdroid.vdb.content.metadata.EntityInfo;
-import interdroid.vdb.content.metadata.FieldInfo;
 import interdroid.vdb.content.metadata.Metadata;
 import interdroid.vdb.persistence.api.VdbCheckout;
 import interdroid.vdb.persistence.api.VdbInitializer;
@@ -32,545 +28,612 @@ import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.text.TextUtils;
 
+/**
+ * The base for all content providers within VDB.
+ *
+ * @author nick &lt;palmer@cs.vu.nl&gt;
+ */
+public abstract class GenericContentProvider extends ContentProvider
+implements VdbInitializerFactory {
 
-public abstract class GenericContentProvider extends ContentProvider implements VdbInitializerFactory {
-	private static final Logger logger = LoggerFactory.getLogger(GenericContentProvider.class);
+    /**
+     * The logger.
+     */
+    static final Logger LOG =
+            LoggerFactory.getLogger(GenericContentProvider.class);
 
-	public static final String SEPARATOR = "_";
-	public static final String PARENT_COLUMN_PREFIX = SEPARATOR + "parent";
+    /**
+     * The separator used in field names.
+     */
+    public static final String SEPARATOR = "_";
+    /**
+     * The parent column prefix for columns which reference parent keys.
+     */
+    public static final String PARENT_COLUMN_PREFIX = SEPARATOR + "parent";
 
-	protected final Metadata metadata_;
-	protected final String namespace_;
-	protected VdbRepository vdbRepo_;
+    /**
+     * The metadata for this content provider.
+     */
+    protected final Metadata mMetadata;
+    /**
+     * The namespace for this content provider.
+     */
+    protected final String mNamespace;
+    /**
+     * The repository this provider stores information in.
+     */
+    protected VdbRepository mVdbRepo;
 
-	// TODO: (nick) Support for multiple key tables?
+    // TODO: (nick) Support for multiple key tables?
+    // TODO: (nick) Support for complex primary keys in all tables?
 
-	private String escapeName(EntityInfo info) {
-		return escapeName(namespace_, info);
-	}
+    /**
+     * Escapes an entity name using the default namespace for this provider.
+     * @param info the info for the entity.
+     * @return the escaped name.
+     */
+    private String escapeName(final EntityInfo info) {
+        return escapeName(mNamespace, info);
+    }
 
-	private static String escapeName(String namespace, EntityInfo info) {
-		return DatabaseUtils.sqlEscapeString(escapeName(namespace, info.namespace(), info.name()));
-	}
+    /**
+     * Escapes an entity using the specified namespace.
+     * @param namespace the namespace to escape for.
+     * @param info the info for the entity.
+     * @return the escaped name.
+     */
+    static String escapeName(final String namespace,
+            final EntityInfo info) {
+        return DatabaseUtils.sqlEscapeString(
+                escapeName(namespace, info.namespace(), info.name()));
+    }
 
-	public static String escapeName(String defaultNamespace, String namespace, String name) {
-		// Don't include the namespace for entities that match our name for simplicity
-		if (defaultNamespace.equals(namespace)) {
-			return name.replace('.', '_');
-		} else {
-			// But entities in other namespaces we use the full namespace. This shouldn't happen often.
-			return namespace.replace('.', '_') + "_" + name.replace('.', '_');
-		}
-	}
+    /**
+     * Escapes an entity using the specified default namespace, namespace and
+     * name.
+     * @param defaultNamespace the default namespace for this provider
+     * @param namespace the namespace for the entity
+     * @param name the name to escape
+     * @return the escaped name.
+     */
+    public static String escapeName(final String defaultNamespace,
+            final String namespace, final String name) {
+        // Don't include the namespace for entities
+        // that match our name for simplicity
+        if (defaultNamespace.equals(namespace)) {
+            return name.replace('.', '_');
+        } else {
+            // But entities in other namespaces we use the
+            // full namespace. This shouldn't happen often.
+            return namespace.replace('.', '_') + "_" + name.replace('.', '_');
+        }
+    }
 
-	public static class DatabaseInitializer implements VdbInitializer {
-		private final Metadata metadata_;
-		private final String namespace_;
-		private final String schema_;
+    /**
+     * @return the initializer for this database.
+     */
+    public abstract VdbInitializer buildInitializer();
 
-		public DatabaseInitializer(String namespace, Metadata metadata) {
-			metadata_ = metadata;
-			namespace_ = namespace;
-			schema_ = "";
-		}
+    @Override
+    public final boolean onCreate() {
+        return true;
+    }
 
-		public DatabaseInitializer(String namespace, Metadata metadata, String schema) {
-			metadata_ = metadata;
-			namespace_ = namespace;
-			schema_ = schema;
-		}
+    /**
+     * Called when this provider is attached to a context.
+     * This gives us access to the context for the first time
+     * which we then use to fetch the actually repository, possibly
+     * initializing it if required.
+     * @param context the context we are being attached to
+     * @param info the info about the provider
+     */
+    public final void attachInfo(final Context context,
+            final ProviderInfo info) {
+        super.attachInfo(context, info);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("attachInfo for: " + mNamespace);
+        }
+        try {
+            mVdbRepo = VdbRepositoryRegistry.getInstance()
+                    .getRepository(context, mNamespace);
+        } catch (IOException e) {
+            LOG.error("Unable to get repository for: " + mNamespace, e);
+        }
+        if (mVdbRepo == null) {
+            LOG.debug("registering repository");
+            try {
+                mVdbRepo = VdbRepositoryRegistry.getInstance()
+                        .addRepository(context, mNamespace, buildInitializer());
+            } catch (IOException e) {
+                throw new RuntimeException("Error initializing repository", e);
+            }
+        }
+        LOG.debug("Fetched repository.");
+        onAttach(context, info);
+        LOG.debug("Done handling attachment.");
+    }
 
-		@Override
-		public void onCreate(SQLiteDatabase db)
-		{
-			if (logger.isDebugEnabled())
-				logger.debug("Initializing database for: " + namespace_);
-			// Keep track of what has been built as we go so as not to duplicate
-			HashMap<String, String> built = new HashMap<String, String>();
-			for (EntityInfo entity : metadata_.getEntities()) {
-				// Only handle root entities.
-				// Children get recursed so foreign key constraints all point up
-				if (entity.parentEntity == null) {
-					buildTables(db, entity, built);
-				}
-			}
-		}
+    /**
+     * A place for subclasses to handle attachment.
+     * @param context the context being attached to
+     * @param info on the provider.
+     */
+    protected void onAttach(final Context context, final ProviderInfo info) {
+        // For subclasses to implement
+    }
 
-		private void buildTables(SQLiteDatabase db, EntityInfo entity, HashMap<String, String> built) {
-			boolean firstField = true;
-			ArrayList<EntityInfo>children = new ArrayList<EntityInfo>();
-			if (built.containsKey(entity.name())) {
-				logger.debug("Already built: {}", entity.name());
-				return;
-			}
-			if (logger.isDebugEnabled())
-				logger.debug("Creating table for: " + entity.namespace() + " : " + entity.name() + ":" + escapeName(namespace_, entity));
-			db.execSQL("DROP TABLE IF EXISTS " + escapeName(namespace_, entity));
+    /**
+     * Constructs a content provider with the given namespace and metadata.
+     * @param namespace the namespace for this provider
+     * @param metadata the metadata for this provider
+     */
+    public GenericContentProvider(final String namespace,
+            final Metadata metadata) {
+        mNamespace = namespace;
+        mMetadata = metadata;
+    }
 
-			StringBuilder createSql = new StringBuilder("CREATE TABLE ");
-			createSql.append(escapeName(namespace_, entity));
-			createSql.append('(');
-			for (FieldInfo field : entity.getFields()) {
-				switch (field.dbType) {
-				case ONE_TO_MANY_INT:
-				case ONE_TO_MANY_STRING:
-					// Skip these since they are handled by putting the key for this one in the targetEntity
-					// but queue the child to be handled when we are done with this table.
-					logger.debug("Queueing Target Entity: ", field.targetEntity);
-					children.add(field.targetEntity);
-					break;
-				case ONE_TO_ONE:
-					logger.debug("Building child table: ", field.targetEntity);
-					// First we need to build the child table so we can do the foreign key on this one
-					buildTables(db, field.targetEntity, built);
+    @Override
+    public final String getType(final Uri uri) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Getting type of: " + uri);
+        }
+        final UriMatch result = EntityUriMatcher.getMatch(uri);
+        final EntityInfo info = mMetadata.getEntity(result);
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Got entity: " + info);
+        }
+        if (info != null) {
+            return info.itemContentType();
+        }
 
-					if (!firstField) {
-						createSql.append(",\n");
-					} else {
-						firstField = false;
-					}
-					createSql.append(DatabaseUtils.sqlEscapeString(field.fieldName));
-					createSql.append(' ');
-					createSql.append(DatabaseFieldType.INTEGER);
-					createSql.append(" REFERENCES ");
-					createSql.append(escapeName(namespace_, field.targetEntity));
-					createSql.append('(');
-					createSql.append(field.targetField.fieldName);
-					createSql.append(')');
-					createSql.append(" DEFERRABLE");
-					logger.debug("Create SQL now: {}", createSql);
-					break;
-				default:
-					if (!firstField) {
-						createSql.append(",\n");
-					} else {
-						firstField = false;
-					}
-					createSql.append(DatabaseUtils.sqlEscapeString(field.fieldName));
-					createSql.append(' ');
-					createSql.append(field.dbTypeName());
-					if (field.targetEntity != null) {
-						createSql.append(" REFERENCES ");
-						createSql.append(escapeName(namespace_, field.targetEntity));
-						createSql.append('(');
-						createSql.append(field.targetField.fieldName);
-						createSql.append(") DEFERRABLE");
-					}
-					logger.debug("Create SQL Default: {}", createSql);
-					break;
-				}
-			}
+        return null;
+    }
 
-			// Now add the primary key constraint
-			createSql.append(", ");
-			createSql.append(" PRIMARY KEY (");
-			firstField = true;
-			for(FieldInfo field : entity.key) {
-				if (!firstField) {
-					createSql.append(", ");
-				} else {
-					firstField = false;
-				}
-				createSql.append(field.fieldName);
-			}
-			createSql.append(')');
+    /**
+     * @param uri the uri to get from
+     * @param result the match result for that uri
+     * @return a checkout for the uri / match
+     */
+    private VdbCheckout getCheckoutFor(final Uri uri, final UriMatch result) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Getting checkout for: " + uri);
+        }
+        try {
+            switch(result.type) {
+            case LOCAL_BRANCH:
+                return mVdbRepo.getBranch(result.reference);
+            case COMMIT:
+                return mVdbRepo.getCommit(result.reference);
+            case REMOTE_BRANCH:
+                return mVdbRepo.getRemoteBranch(result.reference);
+            default:
+                throw new RuntimeException("Unsupported uri type " + uri);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-			// Close the table
-			createSql.append(")");
+    @Override
+    public final Uri insert(final Uri uri, final ContentValues userValues) {
+        Uri returnUri = null;
 
-			if (logger.isDebugEnabled())
-				logger.debug("Creating: " + createSql.toString());
-			db.execSQL(createSql.toString());
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Inserting into: " + uri);
+        }
+        final UriMatch result = EntityUriMatcher.getMatch(uri);
+        if (result.entityIdentifier != null) { /* don't accept ID queries */
+            throw new IllegalArgumentException("Invalid item URI " + uri);
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Getting entity: " + result.entityName);
+        }
+        if (result.entityName == null) {
+            throw new RuntimeException("Uri does not specify an entity: "
+                    + result.entityName);
+        }
+        final EntityInfo entityInfo = mMetadata.getEntity(result);
+        if (entityInfo == null) {
+            throw new RuntimeException("Unable to find entity for: "
+                    + result.entityName);
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Got info: " + entityInfo.name());
+            LOG.debug("Getting checkout for: " + uri);
+        }
+        VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
-			// Now process any remaining children
-			for (EntityInfo child : children) {
-				buildTables(db, child, built);
-			}
+        ContentValues values;
+        if (userValues != null) {
+            values = sanitize(userValues);
+        } else {
+            values = new ContentValues();
+        }
 
-			// Now fill in any enumeration values
-			if (entity.enumValues != null) {
-				ContentValues values = new ContentValues();
-				for (Integer ordinal : entity.enumValues.keySet()) {
-					String value = entity.enumValues.get(ordinal);
-					values.clear();
-					values.put("_id", ordinal);
-					values.put("_value", value);
-					db.insert(escapeName(namespace_, entity), "_id", values);
-				}
-			}
-			built.put(entity.name(), entity.name());
-		}
+        // Propogate the change to the preInsertHook if there is one
+        ContentChangeHandler handler =
+                ContentChangeHandler.getHandler(entityInfo.namespace(),
+                        entityInfo.name());
+        if (handler != null) {
+            handler.preInsertHook(values);
+        }
 
-		@Override
-		public String getSchema() {
-			return schema_;
-		}
-	}
+        SQLiteDatabase db;
+        try {
+            db = vdbBranch.getReadWriteDatabase();
+        } catch (IOException e) {
+            throw new RuntimeException("getReadWriteDatabase failed", e);
+        }
 
-	public VdbInitializer buildInitializer() {
-		logger.debug("Building initializer.");
-		return new DatabaseInitializer(namespace_, metadata_);
-	}
+        try {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Inserting: " + entityInfo.name() + " : "
+                        + entityInfo.key.get(0).fieldName + ":"
+                        + values.getAsString(
+                                entityInfo.key.get(0).fieldName)
+                                + " : " + values.size());
+            }
+            // Do we need to include the parent identifier?
+            if (entityInfo.parentEntity != null
+                    && result.parentEntityIdentifiers != null) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Adding parent id: "
+                            + entityInfo.parentEntity.key.get(0).fieldName + ":"
+                            + result.parentEntityIdentifiers.get(
+                                    result.parentEntityIdentifiers.size() - 1));
+                }
+                values.put(PARENT_COLUMN_PREFIX
+                        + entityInfo.parentEntity.key.get(0).fieldName,
+                        result.parentEntityIdentifiers.get(
+                                result.parentEntityIdentifiers.size() - 1));
+            }
+            long rowId = db.insert(escapeName(entityInfo),
+                    entityInfo.key.get(0).fieldName, values);
+            if (rowId > 0) {
+                returnUri = ContentUris.withAppendedId(uri, rowId);
+                getContext().getContentResolver().notifyChange(returnUri, null);
+            } else {
+                throw new SQLException("Failed to insert row into " + uri);
+            }
+            onPostInsert(returnUri, values);
+        } finally {
+            vdbBranch.releaseDatabase();
+        }
 
-	@Override
-	public boolean onCreate() {
+        return returnUri;
+    }
 
-		return true;
-	}
+    @Override
+    public final Cursor query(final Uri uri, final String[] projection,
+            final String selection, final String[] selectionArgs,
+            final String sortOrder) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Querying for: " + uri);
+        }
+        // Validate the requested uri
+        final UriMatch result = EntityUriMatcher.getMatch(uri);
+        LOG.debug("Query for: {} {}", result.entityName,
+                getClass().getCanonicalName());
+        final EntityInfo entityInfo = mMetadata.getEntity(result);
+        if (entityInfo == null) {
+            throw new RuntimeException("Unable to find entity for: "
+                    + result.entityName);
+        }
+        VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
-	public void attachInfo(Context context, ProviderInfo info) {
-		super.attachInfo(context, info);
-		if (logger.isDebugEnabled())
-			logger.debug("attachInfo for: " + namespace_);
-		try {
-			vdbRepo_ = VdbRepositoryRegistry.getInstance().getRepository(context, namespace_);
-		} catch (IOException e) {
-			logger.error("Unable to get repository for: " + namespace_, e);
-		}
-		if (vdbRepo_ == null) {
-			logger.debug("registering repository");
-			try {
-				vdbRepo_ = VdbRepositoryRegistry.getInstance().addRepository(context, namespace_, buildInitializer());
-			} catch (IOException e) {
-				throw new RuntimeException("Error initializing repository", e);
-			}
-		}
-		logger.debug("Fetched repository.");
-	}
+        SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
 
-	public GenericContentProvider(String namespace, Metadata metadata)
-	{
-		namespace_ = namespace;
-		metadata_ = metadata;
-	}
+        if (result.entityIdentifier != null) {
+            qb.setTables(escapeName(entityInfo));
+            // qb.setProjectionMap(sNotesProjectionMap);
+            qb.appendWhere(entityInfo.key.get(0).fieldName
+                    + "=" + result.entityIdentifier);
+        } else {
+            qb.setTables(escapeName(entityInfo));
+        }
 
-	@Override
-	public String getType(Uri uri)
-	{
-		if (logger.isDebugEnabled())
-			logger.debug("Getting type of: " + uri);
-		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		final EntityInfo info = metadata_.getEntity(result);
-		if (logger.isDebugEnabled())
-			logger.debug("Got entity: " + info);
-		return info != null ? info.itemContentType()
-				: null;
-	}
+        // Append ID of parent if required
+        if (hasParent(result, entityInfo)) {
+            qb.appendWhere(PARENT_COLUMN_PREFIX
+                    + entityInfo.parentEntity.key.get(0).fieldName + "="
+                    + result.parentEntityIdentifiers.get(
+                            result.parentEntityIdentifiers.size() - 1));
+        }
 
-	private VdbCheckout getCheckoutFor(Uri uri, UriMatch result) {
-		if (logger.isDebugEnabled())
-			logger.debug("Getting checkout for: " + uri);
-		try {
-			switch(result.type) {
-			case LOCAL_BRANCH:
-				return vdbRepo_.getBranch(result.reference);
-			case COMMIT:
-				return vdbRepo_.getCommit(result.reference);
-			case REMOTE_BRANCH:
-				return vdbRepo_.getRemoteBranch(result.reference);
-			default:
-				throw new RuntimeException("Unsupported uri type " + uri);
-			}
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-	}
+        // Get the database and run the query
+        SQLiteDatabase db;
+        try {
+            db = vdbBranch.getReadOnlyDatabase();
+        } catch (IOException e) {
+            throw new RuntimeException("getReadOnlyDatabase failed", e);
+        }
 
-	@Override
-	public Uri insert(Uri uri, ContentValues userValues)
-	{
-		if (logger.isDebugEnabled())
-			logger.debug("Inserting into: " + uri);
-		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		if (result.entityIdentifier != null) { /* don't accept ID queries */
-			throw new IllegalArgumentException("Invalid item URI " + uri);
-		}
-		if (logger.isDebugEnabled())
-			logger.debug("Getting entity: " + result.entityName);
-		if (result.entityName == null) {
-			throw new RuntimeException("Uri does not specify an entity: " + result.entityName);
-		}
-		final EntityInfo entityInfo = metadata_.getEntity(result);
-		if (entityInfo == null) {
-			throw new RuntimeException("Unable to find entity for: " + result.entityName);
-		}
-		if (logger.isDebugEnabled()) {
-			logger.debug("Got info: " + entityInfo.name());
-			logger.debug("Getting checkout for: " + uri);
-		}
-		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
+        LOG.debug("Got database: {}", db);
 
-		ContentValues values;
-		if (userValues != null) {
-			values = sanitize(userValues);
-		} else {
-			values = new ContentValues();
-		}
+        // TODO: (emilian) default sort order
 
-		// Propogate the change to the preInsertHook if there is one
-		ContentChangeHandler handler = ContentChangeHandler.getHandler(entityInfo.namespace(), entityInfo.name());
-		if (handler != null) {
-			handler.preInsertHook(values);
-		}
+        try {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Querying with: " + qb.buildQuery(projection,
+                        selection, selectionArgs, null, null, sortOrder, null));
+            }
+            LOG.debug("Projection: " + projection);
+            LOG.debug("Selection: " + selection);
+            LOG.debug("SelectionArgs: " + selectionArgs);
+            Cursor c = qb.query(db, projection, selection, selectionArgs,
+                    null, null, sortOrder);
+            LOG.debug("Got cursor: {}", c);
+            if (c != null && getContext() != null) {
+                // Tell the cursor what uri to watch, so it knows
+                // when its source data changes
+                c.setNotificationUri(getContext().getContentResolver(), uri);
+            }
+            LOG.debug("Returning cursor.");
+            return c;
+        } finally {
+            // TODO: Is this release legal here or does the
+            // cursor still need it?
+            vdbBranch.releaseDatabase();
+        }
+    }
 
-		SQLiteDatabase db;
-		try {
-			db = vdbBranch.getReadWriteDatabase();
-		} catch (IOException e) {
-			throw new RuntimeException("getReadWriteDatabase failed", e);
-		}
+    /**
+     * Return true if this entity has a parent.
+     * @param result the uri match for the entity
+     * @param entityInfo the info for the entity
+     * @return true if this entity has a parent
+     */
+    private boolean hasParent(final UriMatch result,
+            final EntityInfo entityInfo) {
+        return result.parentEntityIdentifiers != null
+                && entityInfo.parentEntity != null;
+    }
 
-		try {
-			if (logger.isDebugEnabled())
-				logger.debug("Inserting: " + entityInfo.name() + " : " + entityInfo.key.get(0).fieldName + ":" + values.getAsString(entityInfo.key.get(0).fieldName) + " : " + values.size());
-			// Do we need to include the parent identifier?
-			if (entityInfo.parentEntity != null && result.parentEntityIdentifiers != null) {
-				if (logger.isDebugEnabled())
-					logger.debug("Adding parent id: " + entityInfo.parentEntity.key.get(0).fieldName + ":" + result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
-				values.put(PARENT_COLUMN_PREFIX + entityInfo.parentEntity.key.get(0).fieldName, result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
-			}
-			long rowId = db.insert(escapeName(entityInfo), entityInfo.key.get(0).fieldName, values);
-			if (rowId > 0) {
-				Uri noteUri = ContentUris.withAppendedId(uri, rowId);
-				getContext().getContentResolver().notifyChange(noteUri, null);
-				return noteUri;
-			}
+    @Override
+    public final int update(final Uri uri, final ContentValues values,
+            final String where, final String[] whereArgs) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Updating: " + uri);
+        }
+        // Validate the requested uri
+        final UriMatch result = EntityUriMatcher.getMatch(uri);
+        final EntityInfo entityInfo = mMetadata.getEntity(result);
 
-			throw new SQLException("Failed to insert row into " + uri);
-		} finally {
-			vdbBranch.releaseDatabase();
-		}
+        if (entityInfo == null) {
+            throw new RuntimeException("Unable to find entity for: " + uri);
+        }
 
-	}
+        VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
-	@Override
-	public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
-			String sortOrder)
-	{
-		if (logger.isDebugEnabled())
-			logger.debug("Querying for: " + uri);
-		// Validate the requested uri
-		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		logger.debug("Query for: {} {}", result.entityName, getClass().getCanonicalName());
-		final EntityInfo entityInfo = metadata_.getEntity(result);
-		if (entityInfo == null) {
-			throw new RuntimeException("Unable to find entity for: " + result.entityName);
-		}
-		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
+        int count = 0;
 
-		SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+        SQLiteDatabase db;
+        try {
+            db = vdbBranch.getReadWriteDatabase();
+        } catch (IOException e) {
+            throw new RuntimeException("getReadWriteDatabase failed", e);
+        }
 
-		if (result.entityIdentifier != null) {
-			qb.setTables(escapeName(entityInfo));
-			// qb.setProjectionMap(sNotesProjectionMap);
-			qb.appendWhere(entityInfo.key.get(0).fieldName + "=" + result.entityIdentifier);
-		} else {
-			qb.setTables(escapeName(entityInfo));
-		}
+        try {
+            count = db.update(escapeName(entityInfo), sanitize(values),
+                    prepareWhereClause(where, result, entityInfo),
+                    prepareWhereArgs(whereArgs, result, entityInfo));
+            onPostUpdate(uri, values, where, whereArgs);
+        } finally {
+            vdbBranch.releaseDatabase();
+        }
 
-		// Append ID of parent if required
-		if (hasParent(result, entityInfo)) {
-			qb.appendWhere(PARENT_COLUMN_PREFIX  + entityInfo.parentEntity.key.get(0).fieldName + "=" + result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
-		}
+        /*
+         TODO: (emilian) implement auto commit support
+         try {
+            vdbBranch.commitBranch();
+         } catch(IOException e) {
+            LOG.debug(e.toString());
+         }
+         */
 
-		// Get the database and run the query
-		SQLiteDatabase db;
-		try {
-			db = vdbBranch.getReadOnlyDatabase();
-		} catch (IOException e) {
-			throw new RuntimeException("getReadOnlyDatabase failed", e);
-		}
+        getContext().getContentResolver().notifyChange(uri, null);
+        LOG.debug("Updated: {}", count);
 
-		logger.debug("Got database: {}", db);
 
-		// TODO(emilian): default sort order
+        return count;
+    }
 
-		try {
-			if (logger.isDebugEnabled())
-				logger.debug("Querying with: " + qb.buildQuery(projection, selection, selectionArgs, null, null, sortOrder, null));
-			logger.debug("Projection: " + projection);
-			logger.debug("Selection: " + selection);
-			logger.debug("SelectionArgs: " + selectionArgs);
-			Cursor c = qb.query(db, projection, selection, selectionArgs, null, null, sortOrder);
-			logger.debug("Got cursor: {}", c);
-			if (c != null && getContext() != null) {
-				// Tell the cursor what uri to watch, so it knows when its source data changes
-				c.setNotificationUri(getContext().getContentResolver(), uri);
-			}
-			logger.debug("Returning cursor.");
-			return c;
-		} finally {
-			// TODO: Is this release legal here or does the cursor still need it?
-			vdbBranch.releaseDatabase();
-		}
-	}
+    /**
+     * Prepares a where clause.
+     * @param where the where string
+     * @param result the uri match
+     * @param entityInfo the info for the entity
+     * @return a where clause
+     */
+    private String prepareWhereClause(final String where, final UriMatch result,
+            final EntityInfo entityInfo) {
+        boolean hasParentId = hasParent(result, entityInfo);
+        boolean hasEntityId = result.entityIdentifier != null;
+        boolean hasWhere =  !TextUtils.isEmpty(where);
+        StringBuffer whereClause = new StringBuffer();
+        if (hasParentId) {
+            whereClause.append(PARENT_COLUMN_PREFIX);
+            whereClause.append(
+                    entityInfo.parentEntity.key.get(0).fieldName);
+            whereClause.append("=?");
+            if (hasEntityId) {
+                whereClause.append(" AND ");
+            }
+        }
+        if (hasEntityId) {
+            whereClause.append(entityInfo.key.get(0).fieldName);
+            whereClause.append("=?");
+        }
+        if (hasWhere) {
+            if (hasEntityId || hasParentId) {
+                whereClause.append(" AND (");
+                whereClause.append(where);
+                whereClause.append(")");
+            } else {
+                whereClause.append(where);
+            }
+        }
 
-	private boolean hasParent(final UriMatch result, final EntityInfo entityInfo) {
-		return result.parentEntityIdentifiers != null && entityInfo.parentEntity != null;
-	}
+        return whereClause.toString();
+    }
 
-	@Override
-	public int update(Uri uri, ContentValues values, String where, String[] whereArgs)
-	{
-		if (logger.isDebugEnabled())
-			logger.debug("Updating: " + uri);
-		// Validate the requested uri
-		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		final EntityInfo entityInfo = metadata_.getEntity(result);
+    /**
+     * Prepares the where clause arguments.
+     * @param whereArgs the arguments
+     * @param result the match for the uri
+     * @param entityInfo the info for this entity
+     * @return an array
+     */
+    private String[] prepareWhereArgs(final String[] whereArgs,
+            final UriMatch result, final EntityInfo entityInfo) {
+        boolean hasParentId = hasParent(result, entityInfo);
+        boolean hasEntityId = result.entityIdentifier != null;
+        String[] preparedArgs = whereArgs;
 
-		if (entityInfo == null) {
-			throw new RuntimeException("Unable to find entity for: " + uri);
-		}
+        if (hasParentId && LOG.isDebugEnabled()) {
+            LOG.debug("Adding parent id to query: {} {}",
+                    PARENT_COLUMN_PREFIX
+                    + entityInfo.parentEntity.key.get(0).fieldName,
+                    result.parentEntityIdentifiers.get(
+                            result.parentEntityIdentifiers.size() - 1));
+        }
+        if (whereArgs != null) {
+            if (hasParentId || hasEntityId) {
+                // One or two more args depending on if we have a parent
+                int newLength = whereArgs.length + (hasParentId ? 1 : 0)
+                        + (hasEntityId ? 1 : 0);
+                String[] temp = new String[newLength];
+                System.arraycopy(whereArgs, 0, temp, 0, whereArgs.length);
+                // Append ID of entity if required
+                if (hasEntityId) {
+                    temp[temp.length - 1] = result.entityIdentifier;
+                }
+                // Append ID of parent if required
+                if (hasParentId) {
+                    temp[temp.length - (hasEntityId ? 2 : 1)] =
+                            result.parentEntityIdentifiers.get(
+                                    result.parentEntityIdentifiers.size() - 1);
+                }
+                preparedArgs = temp;
+            }
+        } else {
+            if (hasParentId && hasEntityId) {
+                preparedArgs =  new String[] {
+                        result.parentEntityIdentifiers.get(
+                                result.parentEntityIdentifiers.size() - 1),
+                                result.entityIdentifier};
+            } else if (!hasParentId && hasEntityId) {
+                preparedArgs =  new String[] {result.entityIdentifier};
+            } else if (hasParentId && !hasEntityId) {
+                preparedArgs =  new String[] {
+                        result.parentEntityIdentifiers.get(
+                                result.parentEntityIdentifiers.size() - 1)};
+            }
+        }
+        return preparedArgs;
+    }
 
-		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
+    /**
+     * Android does not quote identifiers so we have to handle that.
+     * @param values the values to be quoted
+     * @return a sanitized version of the values.
+     */
+    private ContentValues sanitize(final ContentValues values) {
+        ContentValues cleanValues = new ContentValues();
+        for (Entry<String, Object> val : values.valueSet()) {
+            Object value = val.getValue();
+            String cleanName;
+            if (val.getKey().charAt(0) == '\'') {
+                cleanName = val.getKey();
+            } else {
+                cleanName = "'" + val.getKey() + "'";
+            }
+            // This really sucks. There is no generic put an object....
+            if (value == null) {
+                cleanValues.putNull(cleanName);
+            } else if (value instanceof Boolean) {
+                cleanValues.put(cleanName, (Boolean) value);
+            } else if (value instanceof Byte) {
+                cleanValues.put(cleanName, (Byte) value);
+            } else if (value instanceof byte[]) {
+                cleanValues.put(cleanName, (byte[]) value);
+            } else if (value instanceof Double) {
+                cleanValues.put(cleanName, (Double) value);
+            } else if (value instanceof Float) {
+                cleanValues.put(cleanName, (Float) value);
+            } else if (value instanceof Integer) {
+                cleanValues.put(cleanName, (Integer) value);
+            } else if (value instanceof Long) {
+                cleanValues.put(cleanName, (Long) value);
+            } else if (value instanceof Short) {
+                cleanValues.put(cleanName, (Short) value);
+            } else if (value instanceof String) {
+                cleanValues.put(cleanName, (String) value);
+            } else {
+                throw new RuntimeException(
+                        "Don't know how to add value of type: "
+                                + value.getClass().getCanonicalName());
+            }
+        }
+        return cleanValues;
+    }
 
-		SQLiteDatabase db;
-		try {
-			db = vdbBranch.getReadWriteDatabase();
-		} catch (IOException e) {
-			throw new RuntimeException("getReadWriteDatabase failed", e);
-		}
+    @Override
+    public final int delete(final Uri uri, final String where,
+            final String[] whereArgs) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Delete Uri: " + uri);
+        }
+        // Validate the requested uri
+        final UriMatch result = EntityUriMatcher.getMatch(uri);
+        final EntityInfo entityInfo = mMetadata.getEntity(result);
+        if (entityInfo == null) {
+            throw new RuntimeException("Unable to find entity for: "
+                    + result.entityName);
+        }
+        VdbCheckout vdbBranch = getCheckoutFor(uri, result);
 
-		int count = 0;
-		try {
-			values = sanitize(values);
-			count = db.update(escapeName(entityInfo), values,
-					prepareWhereClause(where, result, entityInfo),
-					prepareWhereArgs(whereArgs, result, entityInfo));
-		} finally {
-			vdbBranch.releaseDatabase();
-		}
+        SQLiteDatabase db;
+        try {
+            db = vdbBranch.getReadWriteDatabase();
+        } catch (IOException e) {
+            throw new RuntimeException("getReadWriteDatabase failed", e);
+        }
 
-		/*
-		TODO(emilian) implement auto commit support
-		try {
-			vdbBranch.commitBranch();
-		} catch(IOException e) {
-			Log.v(GenericContentProvider.class.getSimpleName(), e.toString());
-		}
-		 */
+        try {
+            int count = db.delete(escapeName(entityInfo),
+                    prepareWhereClause(where, result, entityInfo),
+                    prepareWhereArgs(whereArgs, result, entityInfo));
 
-		getContext().getContentResolver().notifyChange(uri, null);
-		logger.debug("Updated: {}", count);
-		return count;
+            getContext().getContentResolver().notifyChange(uri, null);
+            return count;
+        } finally {
+            vdbBranch.releaseDatabase();
+        }
+    }
 
-	}
+    /**
+     * Called when an update is complete for subclasses to perform operations.
+     * @param uri the uri being updated
+     * @param values the updated values
+     * @param where the where clause
+     * @param whereArgs the arguments to the where clause
+     */
+    protected void onPostUpdate(final Uri uri, final ContentValues values,
+            final String where, final String[] whereArgs) {
 
-	private String prepareWhereClause(String where, final UriMatch result,
-			final EntityInfo entityInfo) {
-		boolean hasParentId = hasParent(result, entityInfo);
-		boolean hasEntityId = result.entityIdentifier != null;
-		boolean hasWhere =  !TextUtils.isEmpty(where);
-		String ret =
-				(hasParentId ? PARENT_COLUMN_PREFIX + entityInfo.parentEntity.key.get(0).fieldName + "=?" : "") +
-				(hasParentId && hasEntityId ? " AND " : "") +
-				(hasEntityId ? entityInfo.key.get(0).fieldName + "=?" : "") +
-				(hasWhere ?
-						(hasEntityId || hasParentId ? " AND (" + where + ')' : where )
-						: "");
-		return ret;
-	}
+    }
 
-	private String[] prepareWhereArgs(String[] whereArgs,
-			final UriMatch result, final EntityInfo entityInfo) {
-		boolean hasParentId = hasParent(result, entityInfo);
-		boolean hasEntityId = result.entityIdentifier != null;
+    /**
+     * Called when an insert is complete for subclasses to perform operations.
+     * Note that the checkout is still held when this is called.
+     *
+     * @param uri the uri of the inserted item
+     * @param userValues the values being inserted
+     */
+    protected void onPostInsert(final Uri uri, final ContentValues userValues) {
 
-		if (hasParentId && logger.isDebugEnabled()) {
-			logger.debug("Adding parent id to query: {} {}",
-					PARENT_COLUMN_PREFIX  + entityInfo.parentEntity.key.get(0).fieldName,
-					result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1));
-		}
-		if (whereArgs != null) {
-			if (hasParentId || hasEntityId) {
-				// One or two more args depending on if we have a parent
-				int newLength = whereArgs.length + (hasParentId ? 1 : 0) + (hasEntityId ? 1 : 0);
-				String[] temp = new String[newLength];
-				System.arraycopy(whereArgs, 0, temp, 0, whereArgs.length);
-				// Append ID of entity if required
-				if (hasEntityId) {
-					temp[temp.length - 1] = result.entityIdentifier;
-				}
-				// Append ID of parent if required
-				if (hasParentId) {
-					temp[temp.length - (hasEntityId ? 2 : 1)] = result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1);
-				}
-			}
-		} else {
-			if (hasParentId && hasEntityId) {
-				whereArgs =  new String[] {result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1), result.entityIdentifier};
-			} else if (!hasParentId && hasEntityId) {
-				whereArgs =  new String[] {result.entityIdentifier};
-			} else if (hasParentId && !hasEntityId) {
-				whereArgs =  new String[] {result.parentEntityIdentifiers.get(result.parentEntityIdentifiers.size() - 1)};
-			}
-		}
-		return whereArgs;
-	}
-
-	// This sucks. Android does not quote value identifiers properly.
-	private ContentValues sanitize(ContentValues values) {
-		ContentValues cleanValues = new ContentValues();
-		for (Entry<String, Object> val : values.valueSet()) {
-			Object value = val.getValue();
-			String cleanName = val.getKey().charAt(0) == '\'' ? val.getKey() : "'" + val.getKey() + "'";
-			// This really sucks. There is no generic put an object....
-			if (value == null) {
-				cleanValues.putNull(cleanName);
-			} else if (value instanceof Boolean) {
-				cleanValues.put(cleanName, (Boolean)value);
-			} else if (value instanceof Byte) {
-				cleanValues.put(cleanName, (Byte)value);
-			} else if (value instanceof byte[] ) {
-				cleanValues.put(cleanName, (byte[])value);
-			} else if (value instanceof Double ) {
-				cleanValues.put(cleanName, (Double)value);
-			} else if (value instanceof Float ) {
-				cleanValues.put(cleanName, (Float)value);
-			} else if (value instanceof Integer ) {
-				cleanValues.put(cleanName, (Integer)value);
-			}else if (value instanceof Long ) {
-				cleanValues.put(cleanName, (Long)value);
-			} else if (value instanceof Short ) {
-				cleanValues.put(cleanName, (Short)value);
-			} else if (value instanceof String ) {
-				cleanValues.put(cleanName, (String)value);
-			} else {
-				throw new RuntimeException("Don't know how to add value of type: " + value.getClass().getCanonicalName());
-			}
-		}
-		return cleanValues;
-	}
-
-	@Override
-	public int delete(Uri uri, String where, String[] whereArgs)
-	{
-		if (logger.isDebugEnabled())
-			logger.debug("Delete Uri: " + uri);
-		// Validate the requested uri
-		final UriMatch result = EntityUriMatcher.getMatch(uri);
-		final EntityInfo entityInfo = metadata_.getEntity(result);
-		if (entityInfo == null) {
-			throw new RuntimeException("Unable to find entity for: " + result.entityName);
-		}
-		VdbCheckout vdbBranch = getCheckoutFor(uri, result);
-
-		SQLiteDatabase db;
-		try {
-			db = vdbBranch.getReadWriteDatabase();
-		} catch (IOException e) {
-			throw new RuntimeException("getReadWriteDatabase failed", e);
-		}
-
-		try {
-			int count = db.delete(escapeName(entityInfo),
-					prepareWhereClause(where, result, entityInfo),
-					prepareWhereArgs(whereArgs, result, entityInfo));
-
-			getContext().getContentResolver().notifyChange(uri, null);
-			return count;
-		} finally {
-			vdbBranch.releaseDatabase();
-		}
-	}
+    }
 }

@@ -24,212 +24,338 @@ import android.content.ContentProvider;
 import android.content.Context;
 import android.net.Uri;
 
+/**
+ * This class acts as a registry for content providers within the VDB system.
+ *
+ * @author nick &lt;palmer@cs.vu.nl&gt;
+ *
+ */
 public class VdbProviderRegistry {
-	private static final Logger logger = LoggerFactory.getLogger(VdbProviderRegistry.class);
+    /**
+     * Access to logger.
+     */
+    private static final Logger LOG =
+            LoggerFactory.getLogger(VdbProviderRegistry.class);
 
-	private static final String BASE_TYPE = "vnd." + Authority.VDB;
+    /**
+     * The base for all types.
+     */
+    private static final String BASE_TYPE = "vnd." + Authority.VDB;
 
-	private final Context context_;
+    /**
+     * The context the registry is working in.
+     */
+    private final Context mContext;
 
-	private static final Map<String,RepositoryInfo> repoInfos_ = new HashMap<String, RepositoryInfo>();
+    /**
+     * Hash of information about the repositories we know about.
+     */
+    private static final Map<String, RepositoryInfo> REPOS =
+            new HashMap<String, RepositoryInfo>();
 
-	public static final String REPOSITORY_NAME = "repoName";
-	public static final String REPOSITORY_IS_PEER = "isPeer";
-	public static final String REPOSITORY_IS_PUBLIC = "isPublic";
-	private static final String REPOSITORY_ID = "id_";
+    /**
+     * Constant for the key of the repository name.
+     */
+    public static final String REPOSITORY_NAME = "repoName";
+    /**
+     * Constant for the key if the repository is a peer repo.
+     */
+    public static final String REPOSITORY_IS_PEER = "isPeer";
+    /**
+     * Constant for the key if the repository is public.
+     */
+    public static final String REPOSITORY_IS_PUBLIC = "isPublic";
+    /**
+     * Constant for the ID column.
+     */
+    private static final String REPOSITORY_ID = "id_";
 
-	private static class RepositoryInfo {
-		public final RepositoryConf conf_;
-		public GenericContentProvider provider_ = null;
+    /**
+     * A class which holds information about a repository.
+     * @author nick &lt;palmer@cs.vu.nl&gt;
+     *
+     */
+    private static class RepositoryInfo {
+        /**
+         * The configuration for the repository.
+         */
+        private final RepositoryConf mConf;
 
-		public RepositoryInfo(RepositoryConf conf)
-		{
-			conf_ = conf;
-		}
-	}
+        /**
+         * The generic content provider for this repository.
+         */
+        private GenericContentProvider mProvider = null;
 
-	public VdbProviderRegistry(Context context) throws IOException {
-		context_ = context;
+        /**
+         * Constructs with the given configuration.
+         * @param conf the configuration to construct with
+         */
+        public RepositoryInfo(final RepositoryConf conf) {
+            mConf = conf;
+        }
+    }
 
-		if (repoInfos_.size() == 0) {
-			logger.debug("Initializing static repositories.");
-			try {
-				VdbConfig config = new VdbConfig(context);
-				initializeAll(config.getRepositories());
-			} catch (Exception e) {
-				// Ignore.
-			}
+    /**
+     * Constructs the provider registry for use in the given context.
+     * @param context the context to work in
+     * @throws IOException if the database can not be accessed
+     */
+    public VdbProviderRegistry(final Context context) throws IOException {
+        mContext = context;
 
-			logger.debug("Initializing Avro Repos.");
-			List<RepositoryConf> infos = ((AvroProviderRegistry)get(AvroSchemaRegistrationHandler.URI)).getAllRepositories();
-			initializeAll(infos);
-			logger.debug("All repositories registered.");
-		}
-	}
+        if (REPOS.size() == 0) {
+            LOG.debug("Initializing static repositories.");
+            try {
+                VdbConfig config = new VdbConfig(context);
+                initializeAll(config.getRepositories());
+            } catch (Exception e) {
+                // Ignore.
+                LOG.warn("Ignoring error while fetching ORM repositories.", e);
+            }
 
-	private void initializeAll(List<RepositoryConf> repositories) throws IOException {
-		// Initialize all the child content providers, one for each repository.
-		for (RepositoryConf repoConf : repositories) {
-			registerRepository(repoConf);
-		}
-	}
+            LOG.debug("Initializing Avro Repos.");
+            List<RepositoryConf> infos =
+                    ((AvroProviderRegistry) get(
+                            AvroSchemaRegistrationHandler.URI))
+                            .getAllRepositories();
+            initializeAll(infos);
+            LOG.debug("All repositories registered.");
+        }
+    }
 
-	public void registerRepository(RepositoryConf repoConf) {
-		RepositoryInfo repoInfo = new RepositoryInfo(repoConf);
-		if (!repoInfos_.containsKey(repoInfo.conf_.name_)) {
-			logger.debug("Storing into repoInfos: {}", repoInfo.conf_.name_);
-			repoInfos_.put(repoInfo.conf_.name_, repoInfo);
-		}
-	}
+    /**
+     * Initializes all repositories in the given list.
+     * @param repositories the list of repositories
+     * @throws IOException if something goes wrong.
+     */
+    private void initializeAll(final List<RepositoryConf> repositories)
+            throws IOException {
+        // Initialize all the child content providers, one for each repository.
+        for (RepositoryConf repoConf : repositories) {
+            registerRepository(repoConf);
+        }
+    }
 
-	private void initializeRepo(Context context, String name, VdbInitializer initializer) throws IOException {
-		logger.debug("Initializing repository: {}", name);
-		VdbRepositoryRegistry.getInstance().addRepository(context,
-				name, initializer);
-	}
+    /**
+     * Adds the given repository to the registry.
+     * @param repoConf the configuration for the repository
+     */
+    public final void registerRepository(final RepositoryConf repoConf) {
+        RepositoryInfo repoInfo = new RepositoryInfo(repoConf);
+        if (!REPOS.containsKey(repoInfo.mConf.getName())) {
+            LOG.debug("Storing into repoInfos: {}", repoInfo.mConf.getName());
+            REPOS.put(repoInfo.mConf.getName(), repoInfo);
+        }
+    }
 
-	private void buildProvider(Context context, RepositoryInfo info) throws IOException {
-		logger.debug("Building provider for: {}", info.conf_.name_);
-		try {
-			if (info.provider_ == null) {
-				if(info.conf_.avroSchema_ != null) {
-					info.provider_ = new AvroContentProvider(info.conf_.avroSchema_);
-				} else {
-					info.provider_ = (GenericContentProvider) Class.forName(info.conf_.contentProvider_).newInstance();
-				}
-				initializeRepo(context_, info.conf_.name_, info.provider_.buildInitializer());
+    /**
+     * Initializes the given repo.
+     * @param context the context to work in
+     * @param name the repository name
+     * @param initializer the initializer for the repository
+     * @throws IOException if the repo cannot be initialized
+     */
+    private void initializeRepo(final Context context, final String name,
+            final VdbInitializer initializer) throws IOException {
+        LOG.debug("Initializing repository: {}", name);
+        VdbRepositoryRegistry.getInstance().addRepository(context,
+                name, initializer);
+    }
 
-				// Do this at the end, since onCreate will be called in the child
-				// We want everything to be registered prior to this happening.
-				logger.debug("Attaching context: {} to provider.", context);
-				info.provider_.attachInfo(context, null);
-				logger.debug("Initialized Repository: " + info.conf_.name_);
-			}
-		} catch (IllegalAccessException e) {
-			throw new RuntimeException(e);
-		} catch (InstantiationException e) {
-			throw new RuntimeException(e);
-		} catch (ClassNotFoundException e) {
-			throw new RuntimeException(e);
-		}
-	}
+    /**
+     * Builds a provider for the given repository info.
+     * @param context the context to work in
+     * @param info the info on the repository
+     * @throws IOException if there is a problem reading or writing the repo
+     */
+    private void buildProvider(final Context context, final RepositoryInfo info)
+            throws IOException {
+        LOG.debug("Building provider for: {}", info.mConf.getName());
+        try {
+            if (info.mProvider == null) {
+                if (info.mConf.getAvroSchema() != null) {
+                    info.mProvider =
+                            new AvroContentProvider(info.mConf.getAvroSchema());
+                } else {
+                    info.mProvider = (GenericContentProvider)
+                            Class.forName(
+                                    info.mConf.getContentProvider())
+                                    .newInstance();
+                }
+                initializeRepo(mContext, info.mConf.getName(),
+                        info.mProvider.buildInitializer());
 
-	public ContentProvider get(Uri uri) {
-		UriMatch match = EntityUriMatcher.getMatch(uri);
-		RepositoryInfo info = repoInfos_.get(match.repositoryName);
-		validateUri(uri, info, match);
-		try {
-			buildProvider(context_, info);
-		} catch (IOException e) {
-			throw new RuntimeException("Unable to build provider.", e);
-		}
-		return info.provider_;
-	}
+                // Do this at the end, since onCreate will be called in child
+                // We want everything to be registered prior to this happening.
+                LOG.debug("Attaching context: {} to provider.", context);
+                info.mProvider.attachInfo(context, null);
+                LOG.debug("Initialized Repository: " + info.mConf.getName());
+            }
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        } catch (InstantiationException e) {
+            throw new RuntimeException(e);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	private void validateUri(Uri uri, RepositoryInfo info, UriMatch match)
-	{
-		if (info == null) {
-			throw new IllegalArgumentException("Bad URI: unregistered repository: " + match.repositoryName);
-		}
-		if (match.type == MatchType.REPOSITORY) {
-			throw new IllegalArgumentException("Bad URI: only repository was specified. " + uri);
-		}
-	}
+    /**
+     * @param uri the uri a content provider is desired for.
+     * @return a content provider for the given uri.
+     */
+    public final ContentProvider get(final Uri uri) {
+        UriMatch match = EntityUriMatcher.getMatch(uri);
+        RepositoryInfo info = REPOS.get(match.repositoryName);
+        validateUri(uri, info, match);
+        try {
+            buildProvider(mContext, info);
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to build provider.", e);
+        }
+        return info.mProvider;
+    }
 
-	public String getType(Uri uri) {
-		UriMatch match = EntityUriMatcher.getMatch(uri);
-		RepositoryInfo info = repoInfos_.get(match.repositoryName);
-		String type = null;
+    /**
+     * Validates the given uri against the info and match.
+     * @param uri the uri given
+     * @param info the info on the repository
+     * @param match the match for this uri
+     */
+    private void validateUri(final Uri uri, final RepositoryInfo info,
+            final UriMatch match) {
+        if (info == null) {
+            throw new IllegalArgumentException(
+                    "Bad URI: unregistered repository: "
+            + match.repositoryName);
+        }
+        if (match.type == MatchType.REPOSITORY) {
+            throw new IllegalArgumentException(
+                    "Bad URI: only repository was specified. " + uri);
+        }
+    }
 
-		if (info == null) {
-			throw new IllegalArgumentException("Bad URI: unregistered repository. " + uri);
-		}
-		logger.debug("Getting type: {} : {}", match.entityName, match.type);
-		if (match.entityName == null) { // points to actual commit/branch
-			switch(match.type) {
-			case REPOSITORY:
-				type = BASE_TYPE + "/repository";
-				break;
-			case COMMIT:
-				type = BASE_TYPE + "/commit";
-				break;
-			case LOCAL_BRANCH:
-				type = BASE_TYPE + "/branch.local";
-				break;
-			case REMOTE_BRANCH:
-				type = BASE_TYPE + "/branch.remote";
-				break;
-			case REMOTE:
-				type = BASE_TYPE + "/remote";
-				break;
-			}
-		} else {
-			// Make sure provider is initialized
-			initByName(info.conf_.name_);
-			logger.debug("Asking provider for type: {}", uri);
-			type = info.provider_.getType(uri);
-		}
-		logger.debug("Returning type: {}", type);
-		return type;
-	}
+    /**
+     * @param uri the uri the type is desired for
+     * @return the type for the given URI.
+     */
+    public final String getType(final Uri uri) {
+        UriMatch match = EntityUriMatcher.getMatch(uri);
+        RepositoryInfo info = REPOS.get(match.repositoryName);
+        String type = null;
 
-	public void initByName(String name) {
-		RepositoryInfo info = repoInfos_.get(name);
-		try {
-			buildProvider(context_, info);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-	}
+        if (info == null) {
+            throw new IllegalArgumentException(
+                    "Bad URI: unregistered repository. " + uri);
+        }
+        LOG.debug("Getting type: {} : {}", match.entityName, match.type);
+        if (match.entityName == null) { // points to actual commit/branch
+            switch (match.type) {
+            // TODO: These should come from the type short strings.
+            case REPOSITORY:
+                type = BASE_TYPE + "/repository";
+                break;
+            case COMMIT:
+                type = BASE_TYPE + "/commit";
+                break;
+            case LOCAL_BRANCH:
+                type = BASE_TYPE + "/branch.local";
+                break;
+            case REMOTE_BRANCH:
+                type = BASE_TYPE + "/branch.remote";
+                break;
+            case REMOTE:
+                type = BASE_TYPE + "/remote";
+                break;
+            default:
+                LOG.error("Unknown match type: " + match.type);
+                throw new RuntimeException("Unknown match type:" + match.type);
+            }
+        } else {
+            // Make sure provider is initialized
+            initByName(info.mConf.getName());
+            LOG.debug("Asking provider for type: {}", uri);
+            type = info.mProvider.getType(uri);
+        }
+        LOG.debug("Returning type: {}", type);
+        return type;
+    }
 
-	public List<Map<String, Object>> getAllRepositories() {
-		ArrayList<Map<String, Object>> repositories = new ArrayList<Map<String, Object>>();
-		for (RepositoryInfo info : repoInfos_.values()) {
-			// We exclude all interdroid repositories
-			if (! info.conf_.name_.startsWith("interdroid.vdb")) {
-				HashMap<String, Object> map = new HashMap<String, Object>();
-				map.put(REPOSITORY_ID, info.conf_.name_.hashCode());
-				map.put(REPOSITORY_NAME, info.conf_.name_);
-				repositories.add(map);
-			}
-		}
-		return repositories;
-	}
+    /**
+     * Initializes the repository provider by name.
+     * @param name the name of the repository to initialize
+     */
+    public final void initByName(final String name) {
+        RepositoryInfo info = REPOS.get(name);
+        try {
+            buildProvider(mContext, info);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	public List<String> getAllRepositoryNames() {
-		ArrayList<String> repositories = new ArrayList<String>();
-		for (RepositoryInfo info : repoInfos_.values()) {
-			// We exclude all interdroid repositories
-			if (! info.conf_.name_.startsWith("interdroid.vdb")) {
-				repositories.add(info.conf_.name_);
-			}
-		}
-		return repositories;
-	}
+    /**
+     * @return all repositories we know of.
+     */
+    public final List<Map<String, Object>> getAllRepositories() {
+        ArrayList<Map<String, Object>> repositories =
+                new ArrayList<Map<String, Object>>();
+        for (RepositoryInfo info : REPOS.values()) {
+            // We exclude all interdroid repositories
+            if (!info.mConf.getName().startsWith("interdroid.vdb")) {
+                HashMap<String, Object> map = new HashMap<String, Object>();
+                map.put(REPOSITORY_ID, info.mConf.getName().hashCode());
+                map.put(REPOSITORY_NAME, info.mConf.getName());
+                repositories.add(map);
+            }
+        }
+        return repositories;
+    }
 
-	public List<Map<String, Object>> getAllRepositories(String email) throws IOException {
-		List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
-		logger.debug("Getting repos for: {}", email);
-		for (RepositoryInfo info : repoInfos_.values()) {
-			// We exclude all interdroid repositories
-			if (! info.conf_.name_.startsWith("interdroid.vdb")) {
-				Map<String, Object> map = new HashMap<String, Object>();
-				map.put(REPOSITORY_NAME, info.conf_.name_);
-				// Make sure it is initialized
-				initByName(info.conf_.name_);
-				// Pull the repo out
-				VdbRepository repo = VdbRepositoryRegistry.getInstance().getRepository(context_, info.conf_.name_);
-				// Is it a peer?
-				if (null != repo.getRemoteInfo(email)) {
-					map.put(REPOSITORY_IS_PEER, true);
-				} else {
-					map.put(REPOSITORY_IS_PEER, false);
-				}
-				map.put(REPOSITORY_IS_PUBLIC, repo.isPublic());
-				result.add(map);
-			}
-		}
+    /**
+     * @return a list of all repository names
+     */
+    public final List<String> getAllRepositoryNames() {
+        ArrayList<String> repositories = new ArrayList<String>();
+        for (RepositoryInfo info : REPOS.values()) {
+            // We exclude all interdroid repositories
+            if (!info.mConf.getName().startsWith("interdroid.vdb")) {
+                repositories.add(info.mConf.getName());
+            }
+        }
+        return repositories;
+    }
 
-		return result;
-	}
+    /**
+     * @param email the email to search for.
+     * @return all repositories for the given email
+     * @throws IOException if the database cannot be read
+     */
+    public final List<Map<String, Object>> getAllRepositories(
+            final String email) throws IOException {
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        LOG.debug("Getting repos for: {}", email);
+        for (RepositoryInfo info : REPOS.values()) {
+            // We exclude all interdroid repositories
+            if (!info.mConf.getName().startsWith("interdroid.vdb")) {
+                Map<String, Object> map = new HashMap<String, Object>();
+                map.put(REPOSITORY_NAME, info.mConf.getName());
+                // Make sure it is initialized
+                initByName(info.mConf.getName());
+                // Pull the repo out
+                VdbRepository repo = VdbRepositoryRegistry.getInstance()
+                        .getRepository(mContext, info.mConf.getName());
+                // Is it a peer?
+                if (null != repo.getRemoteInfo(email)) {
+                    map.put(REPOSITORY_IS_PEER, true);
+                } else {
+                    map.put(REPOSITORY_IS_PEER, false);
+                }
+                map.put(REPOSITORY_IS_PUBLIC, repo.isPublic());
+                result.add(map);
+            }
+        }
+
+        return result;
+    }
 }
