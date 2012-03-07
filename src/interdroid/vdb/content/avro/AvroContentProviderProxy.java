@@ -26,7 +26,7 @@ import android.net.Uri;
  * @author nick &lt;palmer@cs.vu.nl&gt;
  *
  */
-public final class AvroContentProviderProxy extends ContentProvider {
+public class AvroContentProviderProxy extends ContentProvider {
 
     /**
      * Access to logger.
@@ -77,19 +77,19 @@ public final class AvroContentProviderProxy extends ContentProvider {
     }
 
     @Override
-    public int delete(final Uri uri, final String selection,
+    public final int delete(final Uri uri, final String selection,
             final String[] selectionArgs) {
         return getContext().getContentResolver().delete(
                 remapUri(uri), selection, selectionArgs);
     }
 
     @Override
-    public String getType(final Uri uri) {
+    public final String getType(final Uri uri) {
         return getContext().getContentResolver().getType(remapUri(uri));
     }
 
     @Override
-    public Uri insert(final Uri uri, final ContentValues values) {
+    public final Uri insert(final Uri uri, final ContentValues values) {
         final UriMatch result = EntityUriMatcher.getMatch(uri);
         ContentChangeHandler handler =
                 ContentChangeHandler.getHandler(
@@ -106,7 +106,8 @@ public final class AvroContentProviderProxy extends ContentProvider {
     }
 
     @Override
-    public void attachInfo(final Context context, final ProviderInfo info) {
+    public final void attachInfo(final Context context,
+            final ProviderInfo info) {
         super.attachInfo(context, info);
 
         // Make sure we are registered.
@@ -122,7 +123,7 @@ public final class AvroContentProviderProxy extends ContentProvider {
     }
 
     @Override
-    public Cursor query(final Uri uri, final String[] projection,
+    public final Cursor query(final Uri uri, final String[] projection,
             final String selection, final String[] selectionArgs,
             final String sortOrder) {
         return new CrossProcessCursorWrapper(getContext()
@@ -132,14 +133,14 @@ public final class AvroContentProviderProxy extends ContentProvider {
     }
 
     @Override
-    public int update(final Uri uri, final ContentValues values,
+    public final int update(final Uri uri, final ContentValues values,
             final String selection, final String[] selectionArgs) {
         return getContext().getContentResolver().update(
                 remapUri(uri), values, selection, selectionArgs);
     }
 
     @Override
-    public boolean onCreate() {
+    public final boolean onCreate() {
         return false;
     }
 
