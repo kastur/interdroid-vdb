@@ -5,8 +5,20 @@ import java.lang.annotation.RetentionPolicy;
 
 import interdroid.vdb.content.metadata.DatabaseFieldType;
 
+/**
+ * The annotation for a field in a database.
+ *
+ * @author nick &lt;palmer@cs.vu.nl&gt;
+ *
+ */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface DbField {
-	DatabaseFieldType dbType() default DatabaseFieldType.TEXT;
-	boolean isID() default false;
+    /**
+     * The type for the field.
+     */
+    DatabaseFieldType dbType() default DatabaseFieldType.TEXT;
+    /**
+     * true if this is the id field.
+     */
+    boolean isID() default false;
 }

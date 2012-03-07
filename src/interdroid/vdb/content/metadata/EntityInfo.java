@@ -6,37 +6,81 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Represents a table in the database.
+ *
+ * @author nick &lt;palmer@cs.vu.nl&gt;
+ *
+ */
 public abstract class EntityInfo {
 
-	public final Map<String,FieldInfo> fields = new HashMap<String, FieldInfo>();
-	public final List<FieldInfo> key = new ArrayList<FieldInfo>();
-	public Map<Integer, String> enumValues;
-	public EntityInfo parentEntity;
-	public final List<EntityInfo> children = new ArrayList<EntityInfo>();
+    /**
+     * The fields for this table as a map of name to field info.
+     */
+    public final Map<String,FieldInfo> fields =
+            new HashMap<String, FieldInfo>();
+    /**
+     * The list of fields for this table.
+     */
+    public final List<FieldInfo> key = new ArrayList<FieldInfo>();
 
-	public abstract String name();
+    /**
+     * The values for enumerations.
+     */
+    public Map<Integer, String> enumValues;
 
-	public abstract String namespace();
+    /**
+     * The parent entity if any.
+     */
+    public EntityInfo parentEntity;
 
-	public final String namespaceDot() {
-		return (namespace() == null || "".equals(namespace()) ? "" : namespace() + ".");
-	}
+    /**
+     * The children of this entity if any.
+     */
+    public final List<EntityInfo> children = new ArrayList<EntityInfo>();
 
-	public final String getFullName() {
-		if (namespace() == null || "".equals(namespace())) {
-			return name();
-		}
-		else {
-			return namespace() + "." + name();
-		}
-	}
+    /**
+     * @return the name of this entity.
+     */
+    public abstract String name();
 
-	public abstract String contentType();
+    /**
+     * @return the namespace for this entity.
+     */
+    public abstract String namespace();
 
-	public abstract String itemContentType();
+    /**
+     * @return the namespace followed by a dot or the empty string
+     */
+    public final String namespaceDot() {
+        if (namespace() == null || "".equals(namespace())) {
+            return "";
+        }
+        return namespace() + ".";
+    }
 
-	public Collection<FieldInfo> getFields() {
-		return fields.values();
-	}
+    /**
+     * @return the namespace dot name.
+     */
+    public final String getFullName() {
+        return namespaceDot() + name();
+    }
+
+    /**
+     * @return the content type for a list of this table.
+     */
+    public abstract String contentType();
+
+    /**
+     * @return the content type for an item in this table.
+     */
+    public abstract String itemContentType();
+
+    /**
+     * @return the fields in this table.
+     */
+    public final Collection<FieldInfo> getFields() {
+        return fields.values();
+    }
 
 }
