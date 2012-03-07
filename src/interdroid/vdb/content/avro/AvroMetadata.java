@@ -6,29 +6,45 @@ import org.apache.avro.Schema.Type;
 
 import interdroid.vdb.content.metadata.Metadata;
 
+/**
+ * Represents metadata for an Avro schema.
+ *
+ * @author nick &lt;palmer@cs.vu.nl&gt;
+ *
+ */
 public class AvroMetadata extends Metadata {
 
-	private Schema schema_;
+    /**
+     * The schema we are representing.
+     */
+    private Schema mSchema;
 
-	public AvroMetadata(Schema schema) {
-		super(schema.getNamespace());
-		schema_ = schema;
-		parseSchema();
-	}
+    /**
+     * Construct from a schema.
+     * @param schema the schema to represent
+     */
+    public AvroMetadata(final Schema schema) {
+        super(schema.getNamespace());
+        mSchema = schema;
+        parseSchema();
+    }
 
-	public void setSchema(Schema schema) {
-		schema_ = schema;
-	}
+    /**
+     * Construct from a string with a schema.
+     * @param schema the schema to parse and represent
+     */
+    public AvroMetadata(final String schema) {
+        this(Schema.parse(schema));
+    }
 
-	public AvroMetadata(String schema) {
-		this(Schema.parse(schema));
-	}
-
-	private void parseSchema() {
-		if (schema_.getType() != Type.RECORD){
-			throw new RuntimeException("Root entity must be a record.");
-		}
-		new AvroEntityInfo(schema_, this);
-	}
+    /**
+     * Parses a schema constructing entities to represent the schema.
+     */
+    private void parseSchema() {
+        if (mSchema.getType() != Type.RECORD) {
+            throw new RuntimeException("Root entity must be a record.");
+        }
+        new AvroEntityInfo(mSchema, this);
+    }
 
 }
