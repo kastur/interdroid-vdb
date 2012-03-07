@@ -11,7 +11,6 @@ import interdroid.vdb.content.metadata.EntityInfo;
 import interdroid.vdb.content.metadata.Metadata;
 import interdroid.vdb.persistence.api.VdbCheckout;
 import interdroid.vdb.persistence.api.VdbInitializer;
-import interdroid.vdb.persistence.api.VdbInitializerFactory;
 import interdroid.vdb.persistence.api.VdbRepository;
 import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 
@@ -33,8 +32,7 @@ import android.text.TextUtils;
  *
  * @author nick &lt;palmer@cs.vu.nl&gt;
  */
-public abstract class GenericContentProvider extends ContentProvider
-implements VdbInitializerFactory {
+public abstract class GenericContentProvider extends ContentProvider {
 
     /**
      * The logger.

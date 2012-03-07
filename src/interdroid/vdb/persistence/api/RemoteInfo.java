@@ -13,179 +13,265 @@ import org.eclipse.jgit.transport.URIish;
  * Container for all the information we care about a remote device.
  */
 public class RemoteInfo {
-	public static String SECTION = "remote";
-	private static String KEY_DESCRIPTION = "vdb-description";
-	private static String KEY_OUR_NAME_ON_REMOTE = "vdb-local-name-on-remote";
-	private static String KEY_TYPE = "vdb-type";
+    /**
+     * The section this information is saved under in the preferences.
+     */
+    public static final String SECTION = "remote";
+    /**
+     * The key for the description.
+     */
+    private static final String KEY_DESCRIPTION = "vdb-description";
+    /**
+     * The key for the local name on the remote.
+     */
+    private static final String KEY_OUR_NAME_ON_REMOTE =
+            "vdb-local-name-on-remote";
+    /**
+     * The key for the type of remote.
+     */
+    private static final String KEY_TYPE = "vdb-type";
 
-	public enum RemoteType {
-		MERGE_POINT,
-		HUB;
-	}
+    /**
+     * The types of remotes we suport.
+     *
+     * @author nick &lt;palmer@cs.vu.nl&gt;
+     *
+     */
+    public enum RemoteType {
+        /** A merge point remote. */
+        MERGE_POINT,
+        /** A hub remote. */
+        HUB;
+    }
 
-	private RemoteType type_;
-	private String name_;
-	private String description_;
-	private URIish remoteUri_;
+    /**
+     * The type of remote this represents.
+     */
+    private RemoteType mType;
+    /**
+     * The name of the remote.
+     */
+    private String mName;
+    /**
+     * The description of the remote.
+     */
+    private String mDescription;
+    /**
+     * The URI for the remote.
+     */
+    private URIish mRemoteUri;
+    /**
+     * Our name on the remote when in HUB mode.
+     */
+    private String mOurNameOnRemote;
 
-	/* only valid when type_ == RemoteType.HUB */
-	private String ourNameOnRemote_;
+    /**
+     * Construct a new remote info for a merge point.
+     */
+    public RemoteInfo() {
+        mType = RemoteType.MERGE_POINT;
+    }
+    /**
+     * Construct a new remote info for a merge point
+     * with the given name.
+     * @param name the name of the remote.
+     */
+    public RemoteInfo(final String name) {
+        mName = name;
+        mType = RemoteType.MERGE_POINT;
+    }
 
-	public RemoteInfo() {
-		type_ = RemoteType.MERGE_POINT;
-	}
-	public RemoteInfo(String name) {
-		name_ = name;
-		type_ = RemoteType.MERGE_POINT;
-	}
+    /**
+     * Load a remote from a configuration.
+     * @param rc the configuration to load from
+     * @throws URISyntaxException if the Remote URI is invalid
+     */
+    public final void load(final Config rc) throws URISyntaxException {
+        try {
+            setType(RemoteType.valueOf(rc.getString(SECTION, mName, KEY_TYPE)));
+        } catch (IllegalArgumentException e) {
+            setType(RemoteType.HUB);
+        } catch (NullPointerException e) {
+            setType(RemoteType.HUB);
+        }
 
-	public void load(Config rc) throws URISyntaxException
-	{
-		try {
-			setType(RemoteType.valueOf(rc.getString(SECTION, name_, KEY_TYPE)));
-		} catch(IllegalArgumentException e) {
-			setType(RemoteType.HUB);
-		} catch(NullPointerException e) {
-			setType(RemoteType.HUB);
-		}
+        RemoteConfig remoteCfg = new RemoteConfig(rc, mName);
+        List<URIish> allURIs = remoteCfg.getURIs();
+        if (allURIs.size() > 0) {
+            setRemoteUri(allURIs.get(0));
+        } else {
+            setRemoteUri(null);
+        }
+        setDescription(rc.getString(SECTION, mName, KEY_DESCRIPTION));
 
-		RemoteConfig remoteCfg = new RemoteConfig(rc, name_);
-		List<URIish> allURIs = remoteCfg.getURIs();
-		setRemoteUri((allURIs.size() > 0) ? allURIs.get(0) : null);
-		setDescription(rc.getString(SECTION, name_, KEY_DESCRIPTION));
+        switch (mType) {
+        case HUB:
+            setOurNameOnRemote(rc.getString(SECTION,
+                    mName, KEY_OUR_NAME_ON_REMOTE));
+            break;
+        default:
+        case MERGE_POINT:
+        }
+    }
 
-		switch(type_) {
-		case HUB:
-			setOurNameOnRemote(rc.getString(SECTION, name_, KEY_OUR_NAME_ON_REMOTE));
-			break;
-		case MERGE_POINT:
-		}
-	}
+    /**
+     * Save the information to the configuration.
+     * @param rc the config to save to
+     * @throws URISyntaxException if the URI syntax is invalid
+     */
+    public final void save(final Config rc) throws URISyntaxException {
+        rc.setString(SECTION, mName, KEY_TYPE, mType.name());
+        rc.setString(SECTION, mName, KEY_DESCRIPTION, mDescription);
 
-	public void save(Config rc) throws URISyntaxException
-	{
-		rc.setString(SECTION, name_, KEY_TYPE, type_.name());
-		rc.setString(SECTION, name_, KEY_DESCRIPTION, description_);
+        RemoteConfig remoteCfg = new RemoteConfig(rc, mName);
+        switch (mType) {
+        case HUB:
+            // From hubs we may fetch all the remote references in refs/remotes
+            // TODO: test that the wildcard works for multiple directories
+            remoteCfg.setFetchRefSpecs(new ArrayList<RefSpec>());
+            remoteCfg.addFetchRefSpec(new RefSpec()
+                    .setSourceDestination("refs/remotes/*", "refs/remotes/*"));
 
-		RemoteConfig remoteCfg = new RemoteConfig(rc, name_);
-		switch(type_) {
-		case HUB:
-			// From hubs we may fetch all the remote references in refs/remotes
-			// TODO(emilian): test that the wildcard works for multiple directories
-			remoteCfg.setFetchRefSpecs(new ArrayList<RefSpec>());
-			remoteCfg.addFetchRefSpec(new RefSpec()
-					.setSourceDestination("refs/remotes/*", "refs/remotes/*"));
+            // And we push our local branches to the refs/remotes/ourname
+            remoteCfg.setPushRefSpecs(new ArrayList<RefSpec>());
+            if (mOurNameOnRemote != null) {
+                String pushPath = "refs/remotes/" + mOurNameOnRemote + "/*";
+                remoteCfg.addPushRefSpec(new RefSpec()
+                        .setSourceDestination("refs/heads/*",  pushPath));
+            }
+            break;
+        case MERGE_POINT:
+            // We fetch merge points into refs/remotes/remote-name
+            remoteCfg.setFetchRefSpecs(new ArrayList<RefSpec>());
+            String fetchPath = "refs/remotes/" + mName +  "/*";
+            remoteCfg.addFetchRefSpec(new RefSpec()
+                    .setSourceDestination("refs/heads/*", fetchPath));
 
-			// And we push our local branches to the refs/remotes/ourname
-			remoteCfg.setPushRefSpecs(new ArrayList<RefSpec>());
-			if (ourNameOnRemote_ != null) {
-				String pushPath = "refs/remotes/" + ourNameOnRemote_ + "/*";
-				remoteCfg.addPushRefSpec(new RefSpec()
-						.setSourceDestination("refs/heads/*",  pushPath));
-			}
-			break;
-		case MERGE_POINT:
-			// We fetch merge points into refs/remotes/remote-name
-			remoteCfg.setFetchRefSpecs(new ArrayList<RefSpec>());
-			String fetchPath = "refs/remotes/" + name_ +  "/*";
-			remoteCfg.addFetchRefSpec(new RefSpec()
-					.setSourceDestination("refs/heads/*", fetchPath));
+            // We push directly into the heads of the merge-point remote
+            remoteCfg.setPushRefSpecs(new ArrayList<RefSpec>());
+            remoteCfg.addPushRefSpec(new RefSpec()
+                    .setSourceDestination("refs/heads/*", "refs/heads/*"));
+        default:
+        }
 
-			// We push directly into the heads of the merge-point remote
-			remoteCfg.setPushRefSpecs(new ArrayList<RefSpec>());
-			remoteCfg.addPushRefSpec(new RefSpec()
-					.setSourceDestination("refs/heads/*", "refs/heads/*"));
-		}
+        for (URIish uri : remoteCfg.getURIs()) {
+            remoteCfg.removeURI(uri);
+        }
+        if (mRemoteUri != null) {
+            remoteCfg.addURI(mRemoteUri);
+        }
+        remoteCfg.update(rc);
 
-		for (URIish uri : remoteCfg.getURIs()) {
-			remoteCfg.removeURI(uri);
-		}
-		if (remoteUri_ != null) {
-			remoteCfg.addURI(remoteUri_);
-		}
-		remoteCfg.update(rc);
+        switch (mType) {
+        case HUB:
+            rc.setString(SECTION, mName, KEY_OUR_NAME_ON_REMOTE,
+                    mOurNameOnRemote);
+            break;
+        case MERGE_POINT:
+            rc.unset(SECTION, mName, KEY_OUR_NAME_ON_REMOTE);
+        default:
+        }
+    }
 
-		switch(type_) {
-		case HUB:
-			rc.setString(SECTION, name_, KEY_OUR_NAME_ON_REMOTE, ourNameOnRemote_);
-			break;
-		case MERGE_POINT:
-			rc.unset(SECTION, name_, KEY_OUR_NAME_ON_REMOTE);
-		}
-	}
+    @Override
+    public final RemoteInfo clone() {
+        RemoteInfo copy = new RemoteInfo();
+        copy.mType = mType;
+        copy.mName = mName;
+        copy.mOurNameOnRemote = mOurNameOnRemote;
+        copy.mDescription = mDescription;
+        copy.mRemoteUri = mRemoteUri;
+        return copy;
+    }
 
-	@Override
-	public RemoteInfo clone()
-	{
-		RemoteInfo copy = new RemoteInfo();
-		copy.type_ = type_;
-		copy.name_ = name_;
-		copy.ourNameOnRemote_ = ourNameOnRemote_;
-		copy.description_ = description_;
-		copy.remoteUri_ = remoteUri_;
-		return copy;
-	}
+    /**
+     * Sets the type for this remote.
+     * @param type the type to set it to
+     */
+    public final void setType(final RemoteType type) {
+        mType = type;
+        if (mType == null) {
+            throw new IllegalArgumentException("Type must not be null.");
+        }
+        switch (mType) {
+        default:
+        case HUB:
+            break;
+        case MERGE_POINT:
+            mOurNameOnRemote = null;
+            break;
+        }
+    }
 
-	public void setType(RemoteType type)
-	{
-		type_ = type;
-		if (type_ == null) {
-			throw new IllegalArgumentException("Type must not be null.");
-		}
-		switch(type_) {
-		case HUB:
-			break;
-		case MERGE_POINT:
-			ourNameOnRemote_ = null;
-			break;
-		}
-	}
+    /**
+     * @return the type for this remote
+     */
+    public final RemoteType getType() {
+        return mType;
+    }
 
-	public RemoteType getType()
-	{
-		return type_;
-	}
+    /**
+     * Sets the name for this remote.
+     * @param name the name for this remote
+     */
+    public final void setName(final String name) {
+        mName = name;
+    }
 
-	public void setName(String name)
-	{
-		name_ = name;
-	}
+    /**
+     * @return the name for this remote
+     */
+    public final String getName() {
+        return mName;
+    }
 
-	public String getName()
-	{
-		return name_;
-	}
+    /**
+     * Sets the description for this remote.
+     * @param description the description
+     */
+    public final void setDescription(final String description) {
+        mDescription = description;
+    }
 
-	public void setDescription(String description)
-	{
-		description_ = description;
-	}
+    /**
+     * @return the description for this remote
+     */
+    public final String getDescription() {
+        return mDescription;
+    }
 
-	public String getDescription()
-	{
-		return description_;
-	}
+    /**
+     * Set the URI for this remote.
+     * @param remoteUri the remote uri
+     */
+    public final void setRemoteUri(final URIish remoteUri) {
+        mRemoteUri = remoteUri;
+    }
 
-	public void setRemoteUri(URIish remoteUri)
-	{
-		remoteUri_ = remoteUri;
-	}
+    /**
+     * @return the remote uri
+     */
+    public final URIish getRemoteUri() {
+        return mRemoteUri;
+    }
 
-	public URIish getRemoteUri()
-	{
-		return remoteUri_;
-	}
+    /**
+     * Set our name on the remote. This can only be done for remotes
+     * which are in HUB mode.
+     * @param ourNameOnRemote the name to set
+     */
+    public final void setOurNameOnRemote(final String ourNameOnRemote) {
+        if (mType != RemoteType.HUB) {
+            throw new IllegalArgumentException(
+                    "ourNameOnRemote is only valid for hubs.");
+        }
+        mOurNameOnRemote = ourNameOnRemote;
+    }
 
-	public void setOurNameOnRemote(String ourNameOnRemote)
-	{
-		if (type_ != RemoteType.HUB) {
-			throw new IllegalStateException("ourNameOnRemote is only valid for hubs.");
-		}
-		ourNameOnRemote_ = ourNameOnRemote;
-	}
-
-	public String getOurNameOnRemote()
-	{
-		return ourNameOnRemote_;
-	}
+    /**
+     * @return our name on the remote or null.
+     */
+    public final String getOurNameOnRemote() {
+        return mOurNameOnRemote;
+    }
 }

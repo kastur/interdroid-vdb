@@ -52,7 +52,7 @@ public class ORMEntityInfo extends EntityInfo {
 
     /**
      * Construct entity information from an annotated class.
-     * @param construct the class to get table information from
+     * @param table the class to get table information from
      */
     public ORMEntityInfo(final Class<?> table) {
         this.clazz = table;
