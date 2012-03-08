@@ -56,113 +56,171 @@ import org.slf4j.LoggerFactory;
 
 /** A service exposed by {@link Daemon} over anonymous <code>git://</code>. */
 public abstract class SmartsocketsDaemonService {
-	private static final Logger logger = LoggerFactory
-			.getLogger(SmartsocketsDaemonService.class);
+    /**
+     * Access to logger.
+     */
+    private static final Logger LOG = LoggerFactory
+            .getLogger(SmartsocketsDaemonService.class);
 
-	protected final String command;
+    /**
+     * The command this service supports.
+     */
+    private final String command;
 
-	private final SectionParser<ServiceConfig> configKey;
+    /**
+     * The configuration.
+     */
+    private final SectionParser<ServiceConfig> configKey;
 
-	private boolean enabled;
+    /**
+     * Is this service enabled.
+     */
+    private boolean enabled;
 
-	private boolean overridable;
+    /**
+     * Is this service overridable.
+     */
+    private boolean overridable;
 
-	SmartsocketsDaemonService(final String cmdName, final String cfgName) {
-		command = cmdName.startsWith("git-") ? cmdName : "git-" + cmdName;
-		configKey = new SectionParser<ServiceConfig>() {
-			public ServiceConfig parse(final Config cfg) {
-				return new ServiceConfig(SmartsocketsDaemonService.this, cfg, cfgName);
-			}
-		};
-		overridable = true;
-	}
+    /**
+     * Construct a new service handling the given commands.
+     * @param cmdName the command name
+     * @param cfgName the configuration key name
+     */
+    SmartsocketsDaemonService(final String cmdName, final String cfgName) {
+        command = cmdName.startsWith("git-") ? cmdName : "git-" + cmdName;
+        configKey = new SectionParser<ServiceConfig>() {
+            public ServiceConfig parse(final Config cfg) {
+                return new ServiceConfig(
+                        SmartsocketsDaemonService.this, cfg, cfgName);
+            }
+        };
+        overridable = true;
+    }
 
-	private static class ServiceConfig {
-		final boolean enabled;
+    /**
+     * The configuration for the service.
+     *
+     * @author nick &lt;palmer@cs.vu.nl&gt;
+     *
+     */
+    private static class ServiceConfig {
+        /** Is this service enabled. */
+        private final boolean enabled;
 
-		ServiceConfig(final SmartsocketsDaemonService service, final Config cfg,
-				final String name) {
-			enabled = cfg.getBoolean("daemon", name, service.isEnabled());
-		}
-	}
+        /**
+         * Construct a service configuration.
+         * @param service The service we want config for.
+         * @param cfg the config to load from
+         * @param name the configuration name to load with
+         */
+        ServiceConfig(final SmartsocketsDaemonService service, final Config cfg,
+                final String name) {
+            enabled = cfg.getBoolean("daemon", name, service.isEnabled());
+        }
+    }
 
-	/** @return is this service enabled for invocation? */
-	public boolean isEnabled() {
-		return enabled;
-	}
+    /** @return is this service enabled for invocation? */
+    public final boolean isEnabled() {
+        return enabled;
+    }
 
-	/**
-	 * @param on
-	 *            true to allow this service to be used; false to deny it.
-	 */
-	public void setEnabled(final boolean on) {
-		enabled = on;
-	}
+    /**
+     * @param on
+     *            true to allow this service to be used; false to deny it.
+     */
+    public final void setEnabled(final boolean on) {
+        enabled = on;
+    }
 
-	/** @return can this service be configured in the repository config file? */
-	public boolean isOverridable() {
-		return overridable;
-	}
+    /** @return can this service be configured in the repository config file? */
+    public final boolean isOverridable() {
+        return overridable;
+    }
 
-	/**
-	 * @param on
-	 *            true to permit repositories to override this service's enabled
-	 *            state with the <code>daemon.servicename</code> config setting.
-	 */
-	public void setOverridable(final boolean on) {
-		overridable = on;
-	}
+    /**
+     * @param on
+     *            true to permit repositories to override this service's enabled
+     *            state with the <code>daemon.servicename</code> config setting.
+     */
+    public final void setOverridable(final boolean on) {
+        overridable = on;
+    }
 
-	/** @return name of the command requested by clients. */
-	public String getCommandName() {
-		return command;
-	}
+    /** @return name of the command requested by clients. */
+    public final String getCommandName() {
+        return command;
+    }
 
-	/**
-	 * Determine if this service can handle the requested command.
-	 *
-	 * @param commandLine
-	 *            input line from the client.
-	 * @return true if this command can accept the given command line.
-	 */
-	public boolean handles(final String commandLine) {
-		logger.debug("Checking for match: {} {}", command, commandLine);
-		return command.length() + 1 < commandLine.length()
-				&& commandLine.charAt(command.length()) == ' '
-				&& commandLine.startsWith(command);
-	}
+    /**
+     * Determine if this service can handle the requested command.
+     *
+     * @param commandLine
+     *            input line from the client.
+     * @return true if this command can accept the given command line.
+     */
+    public final boolean handles(final String commandLine) {
+        LOG.debug("Checking for match: {} {}", command, commandLine);
+        return command.length() + 1 < commandLine.length()
+                && commandLine.charAt(command.length()) == ' '
+                && commandLine.startsWith(command);
+    }
 
-	void execute(final SmartSocketsDaemonClient client, final String commandLine)
-			throws IOException, ServiceNotEnabledException,
-			ServiceNotAuthorizedException {
-		final String name = commandLine.substring(command.length() + 1);
-		logger.debug("Got request for repo: {}", name);
-		// This should be based on some kind of type flag
-		Repository db = null;
-		if (name != null && name.length() > 0) {
-			db = client.getDaemon().openRepository(client, name);
-			if (db == null)
-				return;
-		}
-		try {
-			if (isEnabledFor(db))
-				execute(client, db);
-		} finally {
-			if (db != null) {
-				db.close();
-			}
-		}
-	}
+    /**
+     * Execute this service for the given command from the given client.
+     * @param client the client to execute for
+     * @param commandLine the command the client asked for
+     * @throws IOException if reading or writing failed
+     * @throws ServiceNotEnabledException if the service is not enabled
+     * @throws ServiceNotAuthorizedException if the user is not authorized
+     */
+    void execute(final SmartSocketsDaemonClient client,
+            final String commandLine)
+            throws IOException, ServiceNotEnabledException,
+            ServiceNotAuthorizedException {
+        final String name = commandLine.substring(command.length() + 1);
+        LOG.debug("Got request for repo: {}", name);
+        // This should be based on some kind of type flag
+        Repository db = null;
+        if (name != null && name.length() > 0) {
+            db = client.getDaemon().openRepository(client, name);
+            if (db == null) {
+                return;
+            }
+        }
+        try {
+            if (isEnabledFor(db)) {
+                execute(client, db);
+            }
+        } finally {
+            if (db != null) {
+                db.close();
+            }
+        }
+    }
 
-	private boolean isEnabledFor(final Repository db) {
-		if (db != null) {
-			if (isOverridable())
-				return db.getConfig().get(configKey).enabled;
-		}
-		return isEnabled();
-	}
+    /**
+     * @param db the repository being checked
+     * @return true if this service is enabled for this repository.
+     */
+    private boolean isEnabledFor(final Repository db) {
+        if (db != null) {
+            if (isOverridable()) {
+                return db.getConfig().get(configKey).enabled;
+            }
+        }
+        return isEnabled();
+    }
 
-	abstract void execute(SmartSocketsDaemonClient client, Repository db)
-			throws IOException, ServiceNotEnabledException,
-			ServiceNotAuthorizedException;
+    /**
+     * Exceute the actual client service. Implemented by subclasses.
+     * @param client the client to execute for
+     * @param db the repository to execute with
+     * @throws IOException if reading or writing fail
+     * @throws ServiceNotEnabledException if the service is not enabled
+     * @throws ServiceNotAuthorizedException if the service is not authorized
+     */
+    abstract void execute(SmartSocketsDaemonClient client, Repository db)
+            throws IOException, ServiceNotEnabledException,
+            ServiceNotAuthorizedException;
 }

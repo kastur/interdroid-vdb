@@ -45,8 +45,6 @@ package interdroid.vdb.transport;
 
 import ibis.smartsockets.virtual.VirtualSocket;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -59,74 +57,109 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Active network client of {@link Daemon}. */
-public class SmartSocketsDaemonClient {
-	private static final Logger logger = LoggerFactory
-			.getLogger(SmartSocketsDaemonClient.class);
+public final class SmartSocketsDaemonClient {
+    /**
+     * Access to logger.
+     */
+    private static final Logger LOG = LoggerFactory
+            .getLogger(SmartSocketsDaemonClient.class);
 
-	private final SmartSocketsDaemon daemon;
+    /** Number of millis in a second.*/
+    private static final int MILLIS_PER_SECOND = 1000;
 
-	private SocketAddress peer;
+    /**
+     * The daemon we are working for.
+     */
+    private final SmartSocketsDaemon daemon;
 
-	private InputStream rawIn;
+    /**
+     * The address of our peer.
+     */
+    private SocketAddress peer;
 
-	private OutputStream rawOut;
+    /**
+     * The raw input stream.
+     */
+    private InputStream rawIn;
 
-	SmartSocketsDaemonClient(final SmartSocketsDaemon d) {
-		daemon = d;
-	}
+    /**
+     * The raw output stream.
+     */
+    private OutputStream rawOut;
 
-	void setRemoteAddress(final SocketAddress peer2) {
-		peer = peer2;
-	}
+    /**
+     * Construct a new client.
+     * @param d the daemon the client works for.
+     */
+    SmartSocketsDaemonClient(final SmartSocketsDaemon d) {
+        daemon = d;
+    }
 
-	/** @return the daemon which spawned this client. */
-	public SmartSocketsDaemon getDaemon() {
-		return daemon;
-	}
+    /**
+     * Set the remote address.
+     * @param peer2 the address of the peer.
+     */
+    void setRemoteAddress(final SocketAddress peer2) {
+        peer = peer2;
+    }
 
-	/** @return Internet address of the remote client. */
-	public SocketAddress getRemoteAddress() {
-		return peer;
-	}
+    /** @return the daemon which spawned this client. */
+    public SmartSocketsDaemon getDaemon() {
+        return daemon;
+    }
 
-	/** @return input stream to read from the connected client. */
-	public InputStream getInputStream() {
-		return rawIn;
-	}
+    /** @return Internet address of the remote client. */
+    public SocketAddress getRemoteAddress() {
+        return peer;
+    }
 
-	/** @return output stream to send data to the connected client. */
-	public OutputStream getOutputStream() {
-		return rawOut;
-	}
+    /** @return input stream to read from the connected client. */
+    public InputStream getInputStream() {
+        return rawIn;
+    }
 
-	void execute(final VirtualSocket virtualSocket) throws IOException,
-			ServiceNotEnabledException, ServiceNotAuthorizedException {
-		logger.debug("Building streams.");
-		rawIn = virtualSocket.getInputStream();
-		rawOut = virtualSocket.getOutputStream();
+    /** @return output stream to send data to the connected client. */
+    public OutputStream getOutputStream() {
+        return rawOut;
+    }
 
-		logger.debug("Setting socket timeout.");
-		if (0 < daemon.getTimeout())
-			virtualSocket.setSoTimeout(daemon.getTimeout() * 1000);
-		logger.debug("Reading string.");
-		String cmd = new PacketLineIn(rawIn).readStringRaw();
-		logger.debug("Command is: {}", cmd);
+    /**
+     * Execute the client service.
+     * @param virtualSocket the virtual socket to talk with
+     * @throws IOException if reading or writing to the socket fails
+     * @throws ServiceNotEnabledException if the service is not enabled
+     * @throws ServiceNotAuthorizedException if the user is not authorized
+     */
+    void execute(final VirtualSocket virtualSocket) throws IOException,
+            ServiceNotEnabledException, ServiceNotAuthorizedException {
+        LOG.debug("Building streams.");
+        rawIn = virtualSocket.getInputStream();
+        rawOut = virtualSocket.getOutputStream();
 
-		final int nul = cmd.indexOf('\0');
-		if (nul >= 0) {
-			// Newer clients hide a "host" header behind this byte.
-			// Currently we don't use it for anything, so we ignore
-			// this portion of the command.
-			//
-			cmd = cmd.substring(0, nul);
-		}
+        LOG.debug("Setting socket timeout.");
+        if (0 < daemon.getTimeout()) {
+            virtualSocket.setSoTimeout(daemon.getTimeout() * MILLIS_PER_SECOND);
+        }
+        LOG.debug("Reading string.");
+        String cmd = new PacketLineIn(rawIn).readStringRaw();
+        LOG.debug("Command is: {}", cmd);
 
-		final SmartsocketsDaemonService srv = getDaemon().matchService(cmd);
-		logger.debug("Servicing with: {}", srv);
-		if (srv == null)
-			return;
-		virtualSocket.setSoTimeout(0);
-		srv.execute(this, cmd);
-		logger.debug("Executed service.");
-	}
+        final int nul = cmd.indexOf('\0');
+        if (nul >= 0) {
+            // Newer clients hide a "host" header behind this byte.
+            // Currently we don't use it for anything, so we ignore
+            // this portion of the command.
+            //
+            cmd = cmd.substring(0, nul);
+        }
+
+        final SmartsocketsDaemonService srv = getDaemon().matchService(cmd);
+        LOG.debug("Servicing with: {}", srv);
+        if (srv == null) {
+            return;
+        }
+        virtualSocket.setSoTimeout(0);
+        srv.execute(this, cmd);
+        LOG.debug("Executed service.");
+    }
 }
