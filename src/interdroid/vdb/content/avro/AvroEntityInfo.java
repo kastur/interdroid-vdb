@@ -102,8 +102,8 @@ public class AvroEntityInfo extends EntityInfo {
                 keyField = new AvroFieldInfo(
                         new Field(GenericContentProvider.PARENT_COLUMN_PREFIX
                                 + field.fieldName,
-                                ((AvroFieldInfo) field).getSchema(), null, null),
-                                false);
+                                ((AvroFieldInfo) field).getSchema(),
+                                null, null), false);
                 keyField.targetEntity = parentEntity;
                 keyField.targetField = field;
                 fields.put(keyField.fieldName, keyField);

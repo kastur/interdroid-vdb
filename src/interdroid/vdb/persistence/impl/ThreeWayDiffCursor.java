@@ -7,116 +7,186 @@ import interdroid.vdb.persistence.impl.MergeHelper.TableMetadata;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+/**
+ * A cursor for managing a three way diff.
+ *
+ * @author nick &lt;palmer@cs.vu.nl&gt;
+ *
+ */
 public class ThreeWayDiffCursor {
-	private TableMetadata tableInfo_;
-	private Cursor curTheirs_, curOurs_;
-	/**
-	 * This cursor will be used for extracting the row primary key values.
-	 * If null then there is no current row.
-	 */
-	private Cursor rowCursor_;
-	/**
-	 * If the rowCursor is not null then these will hold the diff result
-	 * for the current row.
-	 */
-	private DiffResult rowStateOurs_, rowStateTheirs_;
+    /**
+     * The metadata for the table.
+     */
+    private TableMetadata mTableInfo;
+    /**
+     * Cursor for theirs vs base.
+     */
+    private Cursor mTheirs;
+    /**
+     * Cursor for ours vs base.
+     */
+    private Cursor mOurs;
 
-	/** Cache the column indexes for the diff result column of each diff */
-	private int indexOursDiffState_, indexTheirsDiffState_;
+    /**
+     * This cursor will be used for extracting the row primary key values.
+     * If null then there is no current row.
+     */
+    private Cursor mRow;
 
-	public ThreeWayDiffCursor(MergeHelper helper, SQLiteDatabase db, String table)
-	{
-		tableInfo_ = helper.getTableMetadata(db, table);
-		curTheirs_ = helper.diff2(db, table, Database.BASE, Database.THEIRS);
-		curOurs_ = helper.diff2(db, table, Database.BASE, Database.OURS);
-		indexOursDiffState_ = curOurs_.getColumnIndexOrThrow(MergeHelper.COL_DIFF_RESULT);
-		indexTheirsDiffState_ = curTheirs_.getColumnIndexOrThrow(MergeHelper.COL_DIFF_RESULT);
-	}
+    /**
+     * If the rowCursor is not null then these will hold the diff result
+     * for the current row for our side of the diff.
+     */
+    private DiffResult mRowStateOurs;
+    /**
+     * If the rowCursor is not null then these will hold the diff result
+     * for the current row for their side of the diff.
+     */
+    private DiffResult mRowStateTheirs;
 
-	private void pickSmallestRow()
-	{
-		boolean haveTheirs = !curTheirs_.isAfterLast() && !curTheirs_.isBeforeFirst();
-		boolean haveOurs   = !curOurs_.isAfterLast() && !curOurs_.isBeforeFirst();
-		if (!haveTheirs && !haveOurs) {
-			rowCursor_ = null;
-			return;
-		}
-		if (haveTheirs && haveOurs) {
-			/**
-			 * Since we are merging, we have to iterate on the pk columns in the
-			 * same order as the ORDER BY statement in {@link MergeHelper#diff2}.
-			 **/
-			for (int i = 0; i < tableInfo_.pkFields_.size(); ++i) {
-				// TODO(emilian) rewrite me with strings too
-				long ourLong = curOurs_.getLong(i);
-				long theirLong = curTheirs_.getLong(i);
+    /**
+     * Cache the column indexes for the diff result column for our side.
+     */
+    private int mIndexOursDiffState;
+    /**
+     * Cache the column indexes for the diff result column for their side.
+     */
+    private int mIndexTheirsDiffState;
 
-				if (ourLong < theirLong) {
-					haveTheirs = false;
-					break;
-				}
-				if (theirLong < ourLong) {
-					haveOurs = false;
-					break;
-				}
-			}
-		}
-		rowStateOurs_ = haveOurs ? DiffResult.SAME
-				: DiffResult.valueOf(curTheirs_.getString(indexOursDiffState_));
-		rowStateTheirs_ = haveTheirs ? DiffResult.SAME
-				: DiffResult.valueOf(curTheirs_.getString(indexTheirsDiffState_));
-	}
+    /**
+     * Construct a three way diff cursor.
+     * @param helper the merge helper we work inside
+     * @param db the database with tables
+     * @param table the table we are to merge.
+     */
+    public ThreeWayDiffCursor(final MergeHelper helper, final SQLiteDatabase db,
+            final String table) {
+        mTableInfo = helper.getTableMetadata(db, table);
+        mTheirs = helper.diff2(db, table, Database.BASE, Database.THEIRS);
+        mOurs = helper.diff2(db, table, Database.BASE, Database.OURS);
+        mIndexOursDiffState = mOurs.getColumnIndexOrThrow(
+                MergeHelper.COL_DIFF_RESULT);
+        mIndexTheirsDiffState = mTheirs.getColumnIndexOrThrow(
+                MergeHelper.COL_DIFF_RESULT);
+    }
 
-	public boolean moveToFirst()
-	{
-		curTheirs_.moveToFirst();
-		curOurs_.moveToFirst();
-		pickSmallestRow();
+    /**
+     * Looks for the smallest primary key in the two cursors.
+     */
+    private void pickSmallestRow() {
+        boolean haveTheirs = !mTheirs.isAfterLast()
+                && !mTheirs.isBeforeFirst();
+        boolean haveOurs   = !mOurs.isAfterLast()
+                && !mOurs.isBeforeFirst();
+        if (!haveTheirs && !haveOurs) {
+            mRow = null;
+            return;
+        }
+        if (haveTheirs && haveOurs) {
+            /**
+             * Since we are merging, we have to iterate on the pk columns in the
+             * same order as the ORDER BY statement in
+             * {@link MergeHelper#diff2}.
+             **/
+            for (int i = 0; i < mTableInfo.mKeyFields.size(); ++i) {
+                // TODO: (emilian) rewrite me with strings too
+                long ourLong = mOurs.getLong(i);
+                long theirLong = mTheirs.getLong(i);
 
-		return rowCursor_ != null ? true : false;
-	}
+                if (ourLong < theirLong) {
+                    haveTheirs = false;
+                    break;
+                }
+                if (theirLong < ourLong) {
+                    haveOurs = false;
+                    break;
+                }
+            }
+        }
+        if (haveOurs) {
+            mRowStateOurs = DiffResult.SAME;
+            mRowStateTheirs = DiffResult.SAME;
+        } else {
+            mRowStateOurs = DiffResult.valueOf(
+                    mTheirs.getString(mIndexOursDiffState));
+            mRowStateTheirs = DiffResult.valueOf(
+                    mTheirs.getString(mIndexTheirsDiffState));
+        }
 
-	public boolean moveToNext()
-	{
-		if (rowCursor_ == null) { // already past end
-			return false;
-		}
-		if (!DiffResult.SAME.equals(rowStateOurs_)) {
-			curOurs_.moveToNext();
-		}
-		if (!DiffResult.SAME.equals(rowStateTheirs_)) {
-			curTheirs_.moveToNext();
-		}
-		return rowCursor_ != null ? true : false;
-	}
+    }
 
-	private void checkValidRow()
-	{
-		if (rowCursor_ == null) {
-			throw new IllegalStateException(
-					"Do not query the cursor when there are no more rows.");
-		}
-	}
+    /**
+     * Moves both cursors to first and picks the smallest primary key.
+     * @return true if the move worked
+     */
+    public final boolean moveToFirst() {
+        mTheirs.moveToFirst();
+        mOurs.moveToFirst();
+        pickSmallestRow();
 
-	public DiffResult getStateTheirs()
-	{
-		checkValidRow();
-		return rowStateTheirs_;
-	}
+        if (mRow != null) {
+            return true;
+        }
+        return false;
+    }
 
-	public DiffResult getStateOurs()
-	{
-		checkValidRow();
-		return rowStateOurs_;
-	}
+    /**
+     * Move to the next row.
+     * @return true if the move worked.
+     */
+    public final boolean moveToNext() {
+        if (mRow == null) { // already past end
+            return false;
+        }
+        if (!DiffResult.SAME.equals(mRowStateOurs)) {
+            mOurs.moveToNext();
+        }
+        if (!DiffResult.SAME.equals(mRowStateTheirs)) {
+            mTheirs.moveToNext();
+        }
+        if (mRow != null) {
+            return true;
+        }
+        return false;
+    }
 
-	public Cursor getTheirsCursor()
-	{
-		return curTheirs_;
-	}
+    /**
+     * Checks that we are on a valid row.
+     */
+    private void checkValidRow() {
+        if (mRow == null) {
+            throw new IllegalStateException(
+                    "Do not query the cursor when there are no more rows.");
+        }
+    }
 
-	public Cursor getOursCursor()
-	{
-		return curOurs_;
-	}
+    /**
+     * @return the state of their side.
+     */
+    public final DiffResult getStateTheirs() {
+        checkValidRow();
+        return mRowStateTheirs;
+    }
+
+    /**
+     * @return the state of our side.
+     */
+    public final DiffResult getStateOurs() {
+        checkValidRow();
+        return mRowStateOurs;
+    }
+
+    /**
+     * @return their side cursor
+     */
+    public final Cursor getTheirsCursor() {
+        return mTheirs;
+    }
+
+    /**
+     * @return our side cursor
+     */
+    public final Cursor getOursCursor() {
+        return mOurs;
+    }
 }
