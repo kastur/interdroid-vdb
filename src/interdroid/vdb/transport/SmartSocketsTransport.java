@@ -102,13 +102,8 @@ implements PackTransport {
 
     static {
         sSocketProperties.put(SmartSocketsProperties.DIRECT_CACHE_IP, "false");
-        // TODO: HUB_ADDRESSES should come from a preference somewhere.
-
-        sSocketProperties.put(SmartSocketsProperties.HUB_ADDRESSES,
-                "130.37.29.189-17878~nick");
 
         sSocketProperties.put(SmartSocketsProperties.START_HUB, "true");
-
     }
 
     /**
@@ -412,6 +407,16 @@ implements PackTransport {
     public static NameResolver getResolver() throws InitializationException {
         return NameResolver.getOrCreateResolver(
                 SMARTSOCKETS_TRANSPORT_SCHEME, sSocketProperties, true);
+    }
+
+    /**
+     * Add a hub to the transport.
+     * @param hub the hub addresses to be added
+     * @throws InitializationException if smartsockets fails to initialize.
+     */
+    public static void addHub(final String... hub)
+            throws InitializationException {
+        getResolver().addHub(hub);
     }
 
 }
