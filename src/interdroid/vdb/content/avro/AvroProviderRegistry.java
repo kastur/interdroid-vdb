@@ -42,8 +42,11 @@ import interdroid.vdb.content.metadata.DatabaseFieldType;
 import interdroid.vdb.content.orm.DbEntity;
 import interdroid.vdb.content.orm.DbField;
 import interdroid.vdb.content.orm.ORMGenericContentProvider;
+import interdroid.vdb.persistence.api.VdbRepository;
+import interdroid.vdb.persistence.api.VdbRepositoryRegistry;
 
 import org.apache.avro.Schema;
+import org.eclipse.jgit.lib.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,13 +81,13 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
      */
     @DbEntity(name = AvroSchemaRegistrationHandler.NAME,
             itemContentType = "vnd.android.cursor.item/"
-    + AvroSchemaRegistrationHandler.FULL_NAME,
-            contentType = "vnd.android.cursor.dir/"
-    + AvroSchemaRegistrationHandler.FULL_NAME)
+                    + AvroSchemaRegistrationHandler.FULL_NAME,
+                    contentType = "vnd.android.cursor.dir/"
+                            + AvroSchemaRegistrationHandler.FULL_NAME)
     public static final class RegistryConf {
-           /**
-            * No construction.
-            */
+        /**
+         * No construction.
+         */
         private RegistryConf() { }
 
         /**
@@ -96,9 +99,9 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
          * The content URI for this type.
          */
         public static final Uri CONTENT_URI =
-            Uri.withAppendedPath(EntityUriBuilder.branchUri(
-                    Authority.VDB, AvroSchemaRegistrationHandler.NAMESPACE,
-                    "master"), AvroSchemaRegistrationHandler.NAME);
+                Uri.withAppendedPath(EntityUriBuilder.branchUri(
+                        Authority.VDB, AvroSchemaRegistrationHandler.NAMESPACE,
+                        "master"), AvroSchemaRegistrationHandler.NAME);
 
         /**
          * The ID field.
@@ -111,21 +114,21 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
          */
         @DbField(dbType = DatabaseFieldType.TEXT)
         public static final String NAME =
-            AvroSchemaRegistrationHandler.KEY_NAME;
+        AvroSchemaRegistrationHandler.KEY_NAME;
 
         /**
          * The namespace field.
          */
         @DbField(dbType = DatabaseFieldType.TEXT)
         public static final String NAMESPACE =
-            AvroSchemaRegistrationHandler.KEY_NAMESPACE;
+        AvroSchemaRegistrationHandler.KEY_NAMESPACE;
 
         /**
          * The schema field.
          */
         @DbField(dbType = DatabaseFieldType.TEXT)
         public static final String SCHEMA =
-            AvroSchemaRegistrationHandler.KEY_SCHEMA;
+        AvroSchemaRegistrationHandler.KEY_SCHEMA;
 
     }
 
@@ -186,22 +189,50 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
     @Override
     public final void onPostUpdate(final Uri uri, final ContentValues values,
             final String where, final String[] whereArgs) {
-        migrateDb(values.getAsString(AvroSchemaRegistrationHandler.KEY_SCHEMA));
+        try {
+            LOG.debug("Migrating DB.");
+            migrateDb(
+                    values.getAsString(
+                            AvroSchemaRegistrationHandler.KEY_NAMESPACE),
+                    values.getAsString(AvroSchemaRegistrationHandler.KEY_SCHEMA));
+        } catch (IOException e) {
+            throw new RuntimeException("Error updating database.");
+        }
     }
 
     @Override
     public final void onPostInsert(final Uri uri,
             final ContentValues userValues) {
+        LOG.debug("On post insert: {}", userValues);
+        registerRepository(
+                userValues.getAsString(
+                        AvroSchemaRegistrationHandler.KEY_NAMESPACE),
+                        userValues.getAsString(
+                                AvroSchemaRegistrationHandler.KEY_SCHEMA));
+    }
 
+    @Override
+    public final void onPostDelete(final Uri uri,
+            final String where, final String[] whereArgs) {
+        LOG.debug("Deleted avro repo: {}", whereArgs[0]);
+        VdbRepositoryRegistry.getInstance().deleteRepository(getContext(),
+                whereArgs[0]);
+        try {
+			new VdbProviderRegistry(getContext()).unregister(whereArgs[0]);
+		} catch (IOException e) {
+			// TODO: Auto-generated catch block
+			e.printStackTrace();
+		}
+    }
+
+
+    private void registerRepository(final String namespace, final String schema) {
         VdbProviderRegistry registry;
         try {
+            LOG.debug("Registering avro repo: {} {}", namespace, schema);
             registry = new VdbProviderRegistry(mContext);
             registry.registerRepository(
-                    new RepositoryConf(
-                            userValues.getAsString(
-                                AvroSchemaRegistrationHandler.KEY_NAMESPACE),
-                            userValues.getAsString(
-                                AvroSchemaRegistrationHandler.KEY_SCHEMA)));
+                    new RepositoryConf(namespace, schema));
         } catch (IOException e) {
             throw new RuntimeException("Unable to build registry: ", e);
         }
@@ -209,27 +240,22 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 
     /**
      * Migrates a database from one schema to the new schema.
+     * @param namespace the namespace for the repository
      * @param schemaString the new schema as a string.
+     * @throws IOException
      */
-    private void migrateDb(final String schemaString) {
-        // TODO: Finish implementing database migration on update of schema
-        Cursor c = null;
-        Schema schema = Schema.parse(schemaString);
-        try {
-            c = getContext().getContentResolver().query(
-                    EntityUriBuilder.branchUri(Authority.VDB,
-                            schema.getNamespace(),
-                            "master/" + schema.getName()),
-                            new String[] {"_id"}, null, null, null);
-        } finally {
-            try {
-                if (c != null) {
-                    c.close();
-                }
-            } catch (Exception e) {
-                LOG.error("Caught exception closing cursor", e);
-            }
-        }
+    private void migrateDb(final String namespace, final String schemaString)
+            throws IOException {
+        // Make sure the repo is registered.
+        registerRepository(namespace, schemaString);
+
+        // Parse the schema
+        Schema newSchema = Schema.parse(schemaString);
+
+        VdbRepository repo = VdbRepositoryRegistry.getInstance()
+                .getRepository(getContext(), namespace);
+
+        repo.updateDatabase(Constants.MASTER, newSchema);
     }
 
     /**

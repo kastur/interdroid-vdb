@@ -97,6 +97,10 @@ public class VdbConfig {
             // Nothing to do. Will be initted in the parser.
         }
 
+        public String toString() {
+            return "Name: " + mName + "Provider: " + mContentProvider;
+        }
+
         /**
          * Construct with a name contentProvider and schema.
          * @param name the name of the repo

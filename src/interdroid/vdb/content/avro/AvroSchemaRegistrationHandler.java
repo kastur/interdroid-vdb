@@ -147,6 +147,17 @@ public final class AvroSchemaRegistrationHandler {
     }
 
     /**
+     * Delete a schema and the data on disk.
+     *
+     * @param context the context to work in
+     * @param name the repository to delete
+     */
+    public static void delete(final Context context, final String name) {
+        context.getContentResolver().delete(URI, KEY_NAMESPACE + " = ?",
+                new String[] {name});
+    }
+
+    /**
      * Register a schema with the provider registry.
      *
      * @param context the context to work in

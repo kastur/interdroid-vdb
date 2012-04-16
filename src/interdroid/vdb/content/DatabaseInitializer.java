@@ -119,6 +119,7 @@ public class DatabaseInitializer implements VdbInitializer {
             final EntityInfo entity, final HashMap<String, String> built) {
         boolean firstField = true;
         ArrayList<EntityInfo>children = new ArrayList<EntityInfo>();
+
         if (built.containsKey(entity.name())) {
             LOG.debug("Already built: {}", entity.name());
             return;
@@ -244,5 +245,109 @@ public class DatabaseInitializer implements VdbInitializer {
     @Override
     public final String getSchema() {
         return mSchema;
+    }
+
+    public void updateCopy(SQLiteDatabase updateDb, Metadata masterMetadata) {
+        // Keep track of what has been copied as we go so as not to duplicate
+        HashMap<String, String> built = new HashMap<String, String>();
+
+        for (EntityInfo entity : mDbMetadata.getEntities()) {
+            // Only handle root entities.
+            // Children get recursed
+            if (entity.parentEntity == null) {
+                updateCopyImpl(entity, updateDb,
+                        masterMetadata, built);
+            }
+        }
+    }
+
+    private void updateCopyImpl(EntityInfo entity, SQLiteDatabase updateDb,
+            Metadata masterMetadata,
+            HashMap<String, String> built) {
+        LOG.debug("Copying entity: {}", entity.name())
+        ;
+        if (built.containsKey(entity.name())) {
+            LOG.debug("Already copied: {}", entity.name());
+            return;
+        }
+
+        // An array to hold fields to copy
+        ArrayList<String>copyFields = new ArrayList<String>();
+
+        // Build up a hashMap of other fields
+        HashMap<String, FieldInfo>otherFields =
+                new HashMap<String, FieldInfo>();
+
+        EntityInfo other = masterMetadata.getEntity(entity.name());
+
+        if (null != other) {
+            for (FieldInfo otherField : other.getFields()) {
+                otherFields.put(otherField.fieldName, otherField);
+            }
+        }
+
+        ArrayList<EntityInfo>children = new ArrayList<EntityInfo>();
+
+        for (FieldInfo field : entity.getFields()) {
+            switch (field.dbType) {
+            case ONE_TO_MANY_INT:
+            case ONE_TO_MANY_STRING:
+                // Skip these since they are handled by putting the
+                // key for this one in the targetEntity
+                // but queue the child to be handled when we are
+                // done with this table so we don't violate
+                // the up pointing references.
+                LOG.debug("Queueing Target Entity: ", field.targetEntity);
+                children.add(field.targetEntity);
+                break;
+            case ONE_TO_ONE:
+                // These point down so first copy the child table.
+                // then do this table.
+                updateCopyImpl(field.targetEntity, updateDb,
+                        masterMetadata, built);
+                break;
+            default:
+                // Check if the field existed in the old metadata
+                // and if so then set it to be copied.
+                if (otherFields.containsKey(field.fieldName)) {
+                    copyFields.add(field.fieldName);
+                }
+                break;
+            }
+        }
+
+        // Prepare the INSERT copying SQL
+        StringBuffer insertSql = new StringBuffer();
+        insertSql.append("INSERT INTO ");
+        insertSql.append(entity.name());
+        insertSql.append(" VALUES (");
+        StringBuffer selectSql = new StringBuffer();
+        selectSql.append("SELECT ");
+
+        boolean first = true;
+        for (String field : copyFields) {
+            if (!first) {
+                insertSql.append(", ");
+                selectSql.append(", ");
+            } else {
+                first = false;
+            }
+            insertSql.append(field);
+            selectSql.append(field);
+        }
+        insertSql.append(") ");
+        selectSql.append(" FROM old.");
+        selectSql.append(entity.name());
+        insertSql.append(selectSql.toString());
+
+        LOG.debug("Insert SQL: {}", insertSql.toString());
+        updateDb.execSQL(insertSql.toString());
+
+        // Now process any remaining children
+        for (EntityInfo child : children) {
+            updateCopyImpl(child, updateDb, masterMetadata, built);
+        }
+
+        built.put(entity.name(), entity.name());
     }
 }

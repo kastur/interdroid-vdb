@@ -30,6 +30,9 @@
  */
 package interdroid.vdb.persistence.impl;
 
+import interdroid.vdb.content.DatabaseInitializer;
+import interdroid.vdb.content.avro.AvroContentProvider;
+import interdroid.vdb.content.metadata.Metadata;
 import interdroid.vdb.persistence.api.DirtyCheckoutException;
 import interdroid.vdb.persistence.api.MergeInProgressException;
 import interdroid.vdb.persistence.api.MergeInfo;
@@ -49,6 +52,7 @@ import java.nio.CharBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.avro.Schema;
 import org.eclipse.jgit.api.AddCommand;
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.Git;
@@ -71,545 +75,619 @@ import android.database.sqlite.SQLiteDatabase;
  *
  */
 public class VdbCheckoutImpl implements VdbCheckout {
-    /**
-     * Access to logger.
-     */
-    private static final Logger LOG = LoggerFactory
-            .getLogger(VdbCheckoutImpl.class);
+	// TODO: Should come from R?
+	private static final String INITIAL_SCHEMA_ONLY_VERSION = "Initial schema-only version.";
 
-    /**
-     * The name of the file we store the schema in.
-     */
-    private static final String SCHEMA_FILE = "schema";
+	// TODO: Should come from R?
+	public static final String VDB_EMAIL = "vd@localhost";
 
-    /**
-     * The prefix for a branch reference.
-     */
-    private static final String BRANCH_REF_PREFIX = Constants.R_HEADS;
-    /**
-     * The name of the database file.
-     */
-    private static final String SQLITEDB = "sqlite.db";
-    /**
-     * The name of the merge info file.
-     */
-    private static final String MERGEINFO = "MERGE_INFO";
+	// TODO: Should come from R?
+	public static final String VERSIONING_DAEMON = "Versioning Daemon";
 
-    /**
-     * The timeout for attempting to get the checkout lock.
-     */
-    private static final int LOCK_TIMEOUT = 5;
+	/**
+	 * Access to logger.
+	 */
+	private static final Logger LOG = LoggerFactory
+			.getLogger(VdbCheckoutImpl.class);
 
-    /**
-     * The VDB repository.
-     */
-    private final VdbRepositoryImpl mVdbRepository;
-    /**
-     * The jGit repository.
-     */
-    private final Repository mGitRepository;
-    /**
-     * The name of the checkout.
-     */
-    private final String mCheckoutName;
-    /**
-     * The directory the checkout lives in.
-     */
-    private final File mDirectory;
-    /**
-     * The current merge state of this checkout.
-     */
-    private MergeInfo mMergeInfo;
-    /**
-     * The database for this checkout.
-     */
-    private SQLiteDatabase mDb;
-    /**
-     * A flag indicating this checkout was deleted.
-     */
-    private boolean mDeleted;
-    /**
-     * A flag indicating this checkout is read only.
-     */
-    private boolean mReadOnly;
+	/**
+	 * The name of the file we store the schema in.
+	 */
+	private static final String SCHEMA_FILE = "schema";
 
-    /**
-     * We protect access to the sqlite database by using this lock.
-     * The read/write lock DOES NOT correspond to reading or writing
-     * the database.
-     *
-     * Instead - the read lock is used for accessing the database both
-     * for ro or rw modes, while the write lock is used for exclusively
-     * locking the checkout directory for commits.
-     */
-    private final ReentrantReadWriteLock mLock
-    = new ReentrantReadWriteLock();
+	/**
+	 * The prefix for a branch reference.
+	 */
+	private static final String BRANCH_REF_PREFIX = Constants.R_HEADS;
+	/**
+	 * The name of the database file.
+	 */
+	private static final String SQLITEDB = "sqlite.db";
+	/**
+	 * The name of the merge info file.
+	 */
+	private static final String MERGEINFO = "MERGE_INFO";
 
-    /**
-     * Construct a checkout.
-     * @param parentRepo the repository for this checkout
-     * @param checkoutName the name of the checkout
-     */
-    public VdbCheckoutImpl(final VdbRepositoryImpl parentRepo,
-            final String checkoutName) {
-        this(parentRepo, checkoutName, false);
-    }
+	/**
+	 * The timeout for attempting to get the checkout lock.
+	 */
+	private static final int LOCK_TIMEOUT = 5;
 
-    /**
-     * Construct a (possibly read only) checkout.
-     * @param parentRepo the repository for this checkout
-     * @param checkoutName the name of the checkout
-     * @param readOnly is this checkout read only
-     */
-    public VdbCheckoutImpl(final VdbRepositoryImpl parentRepo,
-            final String checkoutName, final boolean readOnly) {
-        mVdbRepository = parentRepo;
-        mCheckoutName = checkoutName;
-        mDirectory = new File(parentRepo.getRepositoryDir(), checkoutName);
-        mGitRepository = parentRepo.getGitRepository(checkoutName);
-        mReadOnly = readOnly;
+	/**
+	 * The VDB repository.
+	 */
+	private final VdbRepositoryImpl mVdbRepository;
+	/**
+	 * The jGit repository.
+	 */
+	private final Repository mGitRepository;
+	/**
+	 * The name of the checkout.
+	 */
+	private final String mCheckoutName;
+	/**
+	 * The directory the checkout lives in.
+	 */
+	private final File mDirectory;
+	/**
+	 * The current merge state of this checkout.
+	 */
+	private MergeInfo mMergeInfo;
+	/**
+	 * The database for this checkout.
+	 */
+	private SQLiteDatabase mDb;
+	/**
+	 * A flag indicating this checkout was deleted.
+	 */
+	private boolean mDeleted;
+	/**
+	 * A flag indicating this checkout is read only.
+	 */
+	private boolean mReadOnly;
 
-        if (!mDirectory.isDirectory()) { // assume it's already checked out
-            throw new RuntimeException("Not checked out yet.");
-        }
-        loadMergeInfo();
-    }
+	/**
+	 * We protect access to the sqlite database by using this lock.
+	 * The read/write lock DOES NOT correspond to reading or writing
+	 * the database.
+	 *
+	 * Instead - the read lock is used for accessing the database both
+	 * for ro or rw modes, while the write lock is used for exclusively
+	 * locking the checkout directory for commits.
+	 */
+	private final ReentrantReadWriteLock mLock
+	= new ReentrantReadWriteLock();
 
-    /**
-     * Commit the current state to the repository.
-     * @param authorName the name of the author
-     * @param authorEmail the email for the author
-     * @param msg the message for this commit
-     * @throws IOException if reading or writing fails
-     * @throws MergeInProgressException if the merge is not complete
-     */
-    @Override
-    public final synchronized void commit(final String authorName,
-            final String authorEmail, final String msg)
-                    throws IOException, MergeInProgressException {
-        checkDeletedState();
-        checkReadOnly();
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("commit on " + mCheckoutName);
-        }
+	private SQLiteDatabase mUpdateDb;
 
-        if (mMergeInfo != null && !mMergeInfo.isResolved()) {
-            throw new MergeInProgressException();
-        }
+	/**
+	 * Construct a checkout.
+	 * @param parentRepo the repository for this checkout
+	 * @param checkoutName the name of the checkout
+	 */
+	public VdbCheckoutImpl(final VdbRepositoryImpl parentRepo,
+			final String checkoutName) {
+		this(parentRepo, checkoutName, false);
+	}
 
-        try {
-            if (!mLock.writeLock().tryLock(LOCK_TIMEOUT, TimeUnit.SECONDS)) {
-                throw new RuntimeException(
-                        "Timeout waiting for the locked database for commit.");
-            }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+	/**
+	 * Construct a (possibly read only) checkout.
+	 * @param parentRepo the repository for this checkout
+	 * @param checkoutName the name of the checkout
+	 * @param readOnly is this checkout read only
+	 */
+	public VdbCheckoutImpl(final VdbRepositoryImpl parentRepo,
+			final String checkoutName, final boolean readOnly) {
+		mVdbRepository = parentRepo;
+		mCheckoutName = checkoutName;
+		mDirectory = new File(parentRepo.getRepositoryDir(), checkoutName);
+		mGitRepository = parentRepo.getGitRepository(checkoutName);
+		mReadOnly = readOnly;
 
-        try {
-            commitImpl(authorName, authorEmail, msg);
-        } finally {
-            mLock.writeLock().unlock();
-        }
-    }
+		if (!mDirectory.isDirectory()) { // assume it's already checked out
+			throw new RuntimeException("Not checked out yet.");
+		}
+		loadMergeInfo();
+	}
 
-    /**
-     * Checks if this is read only.
-     */
-    private void checkReadOnly() {
-        if (mReadOnly) {
-            throw new RuntimeException("Checkout is reado nly");
-        }
-    }
+	/**
+	 * Commit the current state to the repository.
+	 * @param authorName the name of the author
+	 * @param authorEmail the email for the author
+	 * @param msg the message for this commit
+	 * @throws IOException if reading or writing fails
+	 * @throws MergeInProgressException if the merge is not complete
+	 */
+	@Override
+	public final synchronized void commit(final String authorName,
+			final String authorEmail, final String msg)
+					throws IOException, MergeInProgressException {
+		checkDeletedState();
+		checkReadOnly();
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("commit on " + mCheckoutName);
+		}
 
-    /**
-     * The implementation of the commit operation.
-     * @param authorName the name of the author
-     * @param authorEmail the authors email
-     * @param msg the commit message
-     * @throws IOException if reading or writing fails
-     * @throws MergeInProgressException if a merge is not resolved
-     */
-    private synchronized void commitImpl(final String authorName,
-            final String authorEmail, final String msg)
-                    throws IOException, MergeInProgressException {
+		if (mMergeInfo != null && !mMergeInfo.isResolved()) {
+			throw new MergeInProgressException();
+		}
 
-        if (mMergeInfo != null && !mMergeInfo.isResolved()) {
-            throw new MergeInProgressException();
-        }
+		try {
+			if (!mLock.writeLock().tryLock(LOCK_TIMEOUT, TimeUnit.SECONDS)) {
+				throw new RuntimeException(
+						"Timeout waiting for the locked database for commit.");
+			}
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 
-        Git git = new Git(mGitRepository);
-        CommitCommand commit = git.commit();
-        AddCommand add = git.add();
-        add.addFilepattern(SQLITEDB);
-        add.addFilepattern(SCHEMA_FILE);
-        try {
-            add.call();
-        } catch (NoFilepatternException e) {
-            throw new IOException();
-        }
-        PersonIdent author = new PersonIdent(authorName, authorEmail);
-        commit.setAuthor(author);
-        commit.setCommitter(author);
-        RevCommit revision;
-        try {
-            revision = commit.call();
-        } catch (Exception e) {
-            throw new IOException();
-        }
+		try {
+			commitImpl(authorName, authorEmail, msg);
+		} finally {
+			mLock.writeLock().unlock();
+		}
+	}
 
-        if (mMergeInfo != null) {
-            // successfully committed the merge, get back to normal mode
-            mMergeInfo = null;
-            saveMergeInfo();
-            detachMergeDatabases();
-        }
+	/**
+	 * Checks if this is read only.
+	 */
+	private void checkReadOnly() {
+		if (mReadOnly) {
+			throw new RuntimeException("Checkout is reado nly");
+		}
+	}
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Succesfully committed revision "
-                    + revision.getName().toString() + " on branch "
-                    + mCheckoutName);
-        }
-    }
+	/**
+	 * The implementation of the commit operation.
+	 * @param authorName the name of the author
+	 * @param authorEmail the authors email
+	 * @param msg the commit message
+	 * @throws IOException if reading or writing fails
+	 * @throws MergeInProgressException if a merge is not resolved
+	 */
+	private synchronized void commitImpl(final String authorName,
+			final String authorEmail, final String msg)
+					throws IOException, MergeInProgressException {
 
-    /**
-     * Creates the master checkout for a repository.
-     * @param parentRepo the repository
-     * @param initializer the initializer for the database
-     * @return the checkout of the master
-     * @throws IOException if reading or writing fail
-     */
-    public static VdbCheckoutImpl createMaster(
-            final VdbRepositoryImpl parentRepo,
-            final VdbInitializer initializer)
-                    throws IOException {
-        VdbCheckoutImpl branch = null;
+		if (mMergeInfo != null && !mMergeInfo.isResolved()) {
+			throw new MergeInProgressException();
+		}
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Creating master for: " + parentRepo.getName());
-        }
-        File masterDir = new File(parentRepo.getRepositoryDir(),
-                Constants.MASTER);
-        if (!masterDir.mkdirs()) {
-            throw new IOException("Unable to create directory: "
-                    + masterDir.getCanonicalPath());
-        }
+		Git git = new Git(mGitRepository);
+		CommitCommand commit = git.commit();
+		AddCommand add = git.add();
+		add.addFilepattern(SQLITEDB);
+		add.addFilepattern(SCHEMA_FILE);
+		try {
+			add.call();
+		} catch (NoFilepatternException e) {
+			throw new IOException();
+		}
+		PersonIdent author = new PersonIdent(authorName, authorEmail);
+		commit.setAuthor(author);
+		commit.setCommitter(author);
+		RevCommit revision;
+		try {
+			revision = commit.call();
+		} catch (Exception e) {
+			throw new IOException();
+		}
 
-        if (initializer != null) {
-            SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(
-                    new File(masterDir, SQLITEDB), null);
-            db.setVersion(1);
-            initializer.onCreate(db);
+		if (mMergeInfo != null) {
+			// successfully committed the merge, get back to normal mode
+			mMergeInfo = null;
+			saveMergeInfo();
+			detachMergeDatabases();
+		}
 
-            File schema = new File(masterDir, SCHEMA_FILE);
-            if (!schema.createNewFile()) {
-                throw new RuntimeException("Unable to create schema file");
-            }
-            FileOutputStream fos = new FileOutputStream(schema);
-            fos.write(initializer.getSchema().getBytes("utf8"));
-            fos.close();
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("Succesfully committed revision "
+					+ revision.getName().toString() + " on branch "
+					+ mCheckoutName);
+		}
+	}
 
-            branch = new VdbCheckoutImpl(parentRepo, Constants.MASTER);
-            branch.setDb(db);
+	/**
+	 * Creates the master checkout for a repository.
+	 * @param parentRepo the repository
+	 * @param initializer the initializer for the database
+	 * @return the checkout of the master
+	 * @throws IOException if reading or writing fail
+	 */
+	public static VdbCheckoutImpl createMaster(
+			final VdbRepositoryImpl parentRepo,
+			final VdbInitializer initializer)
+					throws IOException {
+		VdbCheckoutImpl branch = null;
 
-            try {
-                branch.commit("Versioning Daemon", "vd@localhost",
-                        "Initial schema-only version.");
-            } catch (MergeInProgressException e) {
-                // should never happen because we're surely not in merge mode
-                throw new RuntimeException(e);
-            }
-        }
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("Creating master for: " + parentRepo.getName());
+		}
+		File masterDir = new File(parentRepo.getRepositoryDir(),
+				Constants.MASTER);
+		if (!masterDir.mkdirs()) {
+			throw new IOException("Unable to create directory: "
+					+ masterDir.getCanonicalPath());
+		}
 
-        return branch;
-    }
+		if (initializer != null) {
+			SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(
+					new File(masterDir, SQLITEDB), null);
+			db.setVersion(1);
+			initializer.onCreate(db);
 
-    /**
-     * Sets the database.
-     * @param db the db to set to
-     */
-    private synchronized void setDb(final SQLiteDatabase db) {
-        mDb = db;
-    }
+			File schema = new File(masterDir, SCHEMA_FILE);
+			if (!schema.createNewFile()) {
+				throw new RuntimeException("Unable to create schema file");
+			}
+			FileOutputStream fos = new FileOutputStream(schema);
+			fos.write(initializer.getSchema().getBytes("utf8"));
+			fos.close();
 
-    /**
-     * Opens the database.
-     */
-    private synchronized void openDatabase() {
-        if (mDb == null) {
-            mDb = SQLiteDatabase.openDatabase(
-                    new File(mDirectory, SQLITEDB).getAbsolutePath(),
-                    null /* cursor factory */,
-                    SQLiteDatabase.OPEN_READWRITE);
-            try {
-                attachMergeDatabases();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
+			branch = new VdbCheckoutImpl(parentRepo, Constants.MASTER);
+			branch.setDb(db);
 
-    /**
-     * Detaches the merge databases.
-     */
-    private synchronized void detachMergeDatabases() {
-        mDb.execSQL("DETACH DATABASE base");
-        mDb.execSQL("DETACH DATABASE ours");
-        mDb.execSQL("DETACH DATABASE theirs");
-    }
+			try {
+				branch.commit(VERSIONING_DAEMON, VDB_EMAIL,
+						INITIAL_SCHEMA_ONLY_VERSION);
+			} catch (MergeInProgressException e) {
+				// should never happen because we're surely not in merge mode
+				throw new RuntimeException(e);
+			}
+		}
 
-    /**
-     * Attaches the merge databases.
-     * @throws IOException if reading or writing fail.
-     */
-    private synchronized void attachMergeDatabases() throws IOException {
-        openDatabase();
+		return branch;
+	}
 
-        MergeInfo mergeInfo = getMergeInfo();
-        if (mergeInfo != null) {
+	/**
+	 * Sets the database.
+	 * @param db the db to set to
+	 */
+	private synchronized void setDb(final SQLiteDatabase db) {
+		mDb = db;
+	}
 
-            File baseCheckout =
-                    mVdbRepository.checkoutCommit(mergeInfo.getBase());
-            File oursCheckout =
-                    mVdbRepository.checkoutCommit(mergeInfo.getOurs());
-            File theirsCheckout =
-                    mVdbRepository.checkoutCommit(mergeInfo.getTheirs());
+	/**
+	 * Opens the database.
+	 */
+	private synchronized void openDatabase() {
+		if (mDb == null) {
+			mDb = SQLiteDatabase.openDatabase(
+					new File(mDirectory, SQLITEDB).getAbsolutePath(),
+					null /* cursor factory */,
+					SQLiteDatabase.OPEN_READWRITE);
+			try {
+				attachMergeDatabases();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
 
-            mDb.execSQL("ATTACH DATABASE '"
-                    + new File(baseCheckout, SQLITEDB).getAbsolutePath()
-                    + "' AS base");
-            mDb.execSQL("ATTACH DATABASE '"
-                    + new File(oursCheckout, SQLITEDB).getAbsolutePath()
-                    + "' AS ours");
-            mDb.execSQL("ATTACH DATABASE '"
-                    + new File(theirsCheckout, SQLITEDB).getAbsolutePath()
-                    + "' AS theirs");
-        }
-    }
+	/**
+	 * Detaches the merge databases.
+	 */
+	private synchronized void detachMergeDatabases() {
+		mDb.execSQL("DETACH DATABASE base");
+		mDb.execSQL("DETACH DATABASE ours");
+		mDb.execSQL("DETACH DATABASE theirs");
+	}
 
-    /**
-     * Returns the database, opening if necessary. This operation
-     * grabs the read lock for the database.
-     * @return the database
-     */
-    private synchronized SQLiteDatabase getDatabase() {
-        openDatabase();
-        try {
-            if (mLock.readLock().tryLock(LOCK_TIMEOUT, TimeUnit.SECONDS)) {
-                return mDb;
-            }
-        } catch (InterruptedException e) {
-            LOG.warn("Ignoring interupted exception: ", e);
-        }
-        throw new RuntimeException("Timeout waiting for the locked database.");
-    }
+	/**
+	 * Attaches the merge databases.
+	 * @throws IOException if reading or writing fail.
+	 */
+	private synchronized void attachMergeDatabases() throws IOException {
+		openDatabase();
 
-    @Override
-    public final synchronized SQLiteDatabase getReadOnlyDatabase()
-            throws IOException {
-        checkDeletedState();
-        return getDatabase();
-    }
+		MergeInfo mergeInfo = getMergeInfo();
+		if (mergeInfo != null) {
 
-    @Override
-    public final synchronized SQLiteDatabase getReadWriteDatabase()
-            throws IOException {
-        checkDeletedState();
-        checkReadOnly();
-        return getDatabase();
-    }
+			File baseCheckout =
+					mVdbRepository.checkoutCommit(mergeInfo.getBase());
+			File oursCheckout =
+					mVdbRepository.checkoutCommit(mergeInfo.getOurs());
+			File theirsCheckout =
+					mVdbRepository.checkoutCommit(mergeInfo.getTheirs());
 
-    @Override
-    public final synchronized void releaseDatabase() {
-        checkDeletedState();
-        mLock.readLock().unlock();
-    }
+			mDb.execSQL("ATTACH DATABASE '"
+					+ new File(baseCheckout, SQLITEDB).getAbsolutePath()
+					+ "' AS base");
+			mDb.execSQL("ATTACH DATABASE '"
+					+ new File(oursCheckout, SQLITEDB).getAbsolutePath()
+					+ "' AS ours");
+			mDb.execSQL("ATTACH DATABASE '"
+					+ new File(theirsCheckout, SQLITEDB).getAbsolutePath()
+					+ "' AS theirs");
+		}
+	}
 
-    /**
-     * Loads the merge information from the merge info file.
-     */
-    private synchronized void loadMergeInfo() {
-        File infoFile = new File(mDirectory, MERGEINFO);
-        try {
-            FileInputStream fis = new FileInputStream(infoFile);
-            ObjectInputStream ois = new ObjectInputStream(fis);
-            mMergeInfo = (MergeInfo) ois.readObject();
-            ois.close();
-        } catch (FileNotFoundException e) {
-            mMergeInfo = null;
-        } catch (IOException e) {
-            throw new RuntimeException(
-                    "Error while reading MergeInformation from "
-                            + infoFile, e);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(
-                    "Error while reading MergeInformation from "
-                            + infoFile, e);
-        }
-    }
+	/**
+	 * Returns the database, opening if necessary. This operation
+	 * grabs the read lock for the database.
+	 * @return the database
+	 */
+	private synchronized SQLiteDatabase getDatabase() {
+		openDatabase();
+		try {
+			if (mLock.readLock().tryLock(LOCK_TIMEOUT, TimeUnit.SECONDS)) {
+				return mDb;
+			}
+		} catch (InterruptedException e) {
+			LOG.warn("Ignoring interupted exception: ", e);
+		}
+		throw new RuntimeException("Timeout waiting for the locked database.");
+	}
 
-    /**
-     * Saves the merge information to a a file.
-     */
-    private synchronized void saveMergeInfo() {
-        File infoFile = new File(mDirectory, MERGEINFO);
-        if (mMergeInfo == null) {
-            if (!infoFile.delete()) {
-                LOG.warn("Error deleting: {}", infoFile);
-            }
-        } else {
-            try {
-                FileOutputStream fos = new FileOutputStream(infoFile);
-                ObjectOutputStream oos = new ObjectOutputStream(fos);
-                oos.writeObject(mMergeInfo);
-                oos.close();
-            } catch (FileNotFoundException e) {
-                throw new RuntimeException("Could not open "
-                        + infoFile.getAbsolutePath()
-                        + " for writing");
-            } catch (IOException e) {
-                throw new RuntimeException(
-                        "Error while reading MergeInformation from "
-                                + infoFile, e);
-            }
-        }
+	@Override
+	public final synchronized SQLiteDatabase getReadOnlyDatabase()
+			throws IOException {
+		checkDeletedState();
+		return getDatabase();
+	}
 
-    }
+	@Override
+	public final synchronized SQLiteDatabase getReadWriteDatabase()
+			throws IOException {
+		checkDeletedState();
+		checkReadOnly();
+		return getDatabase();
+	}
 
-    @Override
-    public final synchronized MergeInfo getMergeInfo() {
-        checkDeletedState();
-        if (mMergeInfo != null) {
-            return mMergeInfo.clone();
-        }
-        return null;
-    }
+	@Override
+	public final synchronized void releaseDatabase() {
+		checkDeletedState();
+		mLock.readLock().unlock();
+	}
 
-    @Override
-    public final synchronized void doneMerge() {
-        checkDeletedState();
-        if (mMergeInfo == null) {
-            throw new IllegalStateException("Branch was not in merge mode.");
-        }
-        mMergeInfo.setResolved();
-        saveMergeInfo();
-    }
+	/**
+	 * Loads the merge information from the merge info file.
+	 */
+	private synchronized void loadMergeInfo() {
+		File infoFile = new File(mDirectory, MERGEINFO);
+		try {
+			FileInputStream fis = new FileInputStream(infoFile);
+			ObjectInputStream ois = new ObjectInputStream(fis);
+			mMergeInfo = (MergeInfo) ois.readObject();
+			ois.close();
+		} catch (FileNotFoundException e) {
+			mMergeInfo = null;
+		} catch (IOException e) {
+			throw new RuntimeException(
+					"Error while reading MergeInformation from "
+							+ infoFile, e);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(
+					"Error while reading MergeInformation from "
+							+ infoFile, e);
+		}
+	}
 
-    @Override
-    public final synchronized void revert() throws IOException {
-        checkDeletedState();
-        try {
-            Runtime.getRuntime().exec(new String[] {"rm", "-r",
-                    mDirectory.getAbsolutePath()}).waitFor();
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Interrupt not allowed.");
-        }
-        mVdbRepository.checkoutBranch(mCheckoutName);
-        mMergeInfo = null;
-    }
+	/**
+	 * Saves the merge information to a a file.
+	 */
+	private synchronized void saveMergeInfo() {
+		File infoFile = new File(mDirectory, MERGEINFO);
+		if (mMergeInfo == null) {
+			if (!infoFile.delete()) {
+				LOG.warn("Error deleting: {}", infoFile);
+			}
+		} else {
+			try {
+				FileOutputStream fos = new FileOutputStream(infoFile);
+				ObjectOutputStream oos = new ObjectOutputStream(fos);
+				oos.writeObject(mMergeInfo);
+				oos.close();
+			} catch (FileNotFoundException e) {
+				throw new RuntimeException("Could not open "
+						+ infoFile.getAbsolutePath()
+						+ " for writing");
+			} catch (IOException e) {
+				throw new RuntimeException(
+						"Error while reading MergeInformation from "
+								+ infoFile, e);
+			}
+		}
 
-    @Override
-    public final synchronized void startMerge(final String theirSha1)
-            throws MergeInProgressException, DirtyCheckoutException,
-            IOException {
-        checkDeletedState();
-        if (mMergeInfo != null) {
-            throw new MergeInProgressException();
-        }
+	}
 
-        // TODO: throw DirtyCheckoutException
+	@Override
+	public final synchronized MergeInfo getMergeInfo() {
+		checkDeletedState();
+		if (mMergeInfo != null) {
+			return mMergeInfo.clone();
+		}
+		return null;
+	}
 
-        MergeInfo info;
-        try {
-            AnyObjectId theirCommit = mGitRepository.resolve(theirSha1);
-            AnyObjectId ourCommit = mGitRepository.getRef(BRANCH_REF_PREFIX
-                    + mCheckoutName).getObjectId();
-            String baseCommit = mVdbRepository.getMergeBase(theirCommit,
-                    ourCommit).getId().getName();
+	@Override
+	public final synchronized void doneMerge() {
+		checkDeletedState();
+		if (mMergeInfo == null) {
+			throw new IllegalStateException("Branch was not in merge mode.");
+		}
+		mMergeInfo.setResolved();
+		saveMergeInfo();
+	}
 
-            info = new MergeInfo(baseCommit,
-                    theirCommit.getName(), ourCommit.getName());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+	@Override
+	public final synchronized void revert() throws IOException {
+		checkDeletedState();
+		try {
+			Runtime.getRuntime().exec(new String[] {"rm", "-r",
+					mDirectory.getAbsolutePath()}).waitFor();
+		} catch (InterruptedException e) {
+			throw new RuntimeException("Interrupt not allowed.");
+		}
+		mVdbRepository.checkoutBranch(mCheckoutName);
+		mMergeInfo = null;
+	}
 
-        // Only now save the merge state to the member variable
-        // to prevent invalid merge
-        // state in case part of the above operations fail.
-        mMergeInfo = info;
-        saveMergeInfo();
-        attachMergeDatabases();
-    }
+	@Override
+	public final synchronized void startMerge(final String theirSha1)
+			throws MergeInProgressException, DirtyCheckoutException,
+			IOException {
+		checkDeletedState();
+		if (mMergeInfo != null) {
+			throw new MergeInProgressException();
+		}
 
-    /**
-     * Check to ensure the checkout isn't flagged deleted.
-     */
-    private void checkDeletedState() {
-        if (mDeleted) {
-            throw new IllegalStateException("This checkout was deleted.");
-        }
-    }
+		// TODO: throw DirtyCheckoutException
 
-    /**
-     * Delete this checkout.
-     * @param path the path for the checkout
-     * @throws IOException if reading or writing fails.
-     */
-    private void doDelete(final File path) throws IOException {
-        if (path.isDirectory()) {
-            for (File child : path.listFiles()) {
-                doDelete(child);
-            }
-        }
-        if (!path.delete()) {
-            throw new IOException("Could not delete " + path);
-        }
-    }
+		MergeInfo info;
+		try {
+			AnyObjectId theirCommit = mGitRepository.resolve(theirSha1);
+			AnyObjectId ourCommit = mGitRepository.getRef(BRANCH_REF_PREFIX
+					+ mCheckoutName).getObjectId();
+			String baseCommit = mVdbRepository.getMergeBase(theirCommit,
+					ourCommit).getId().getName();
 
-    @Override
-    public final void delete() {
-        checkDeletedState();
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("delete called for " + mCheckoutName);
-        }
+			info = new MergeInfo(baseCommit,
+					theirCommit.getName(), ourCommit.getName());
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 
-        try {
-            if (!mLock.writeLock().tryLock(LOCK_TIMEOUT, TimeUnit.SECONDS)) {
-                throw new RuntimeException(
-                        "Timeout waiting for exclusive lock on database.");
-            }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+		// Only now save the merge state to the member variable
+		// to prevent invalid merge
+		// state in case part of the above operations fail.
+		mMergeInfo = info;
+		saveMergeInfo();
+		attachMergeDatabases();
+	}
 
-        try {
-            mDeleted = true;
-            doDelete(mDirectory);
-        } catch (IOException e) {
-            throw new RuntimeException("Could not delete checkout.", e);
-        } finally {
-            mLock.writeLock().unlock();
-            mVdbRepository.releaseCheckout(mCheckoutName);
-        }
-    }
+	/**
+	 * Check to ensure the checkout isn't flagged deleted.
+	 */
+	private void checkDeletedState() {
+		if (mDeleted) {
+			throw new IllegalStateException("This checkout was deleted.");
+		}
+	}
 
-    @Override
-    public final String getSchema() throws IOException {
-        File schema = new File(mDirectory, SCHEMA_FILE);
-        if (!schema.canRead()) {
-            throw new RuntimeException("Unable to read schema file");
-        }
-        BufferedReader reader = new BufferedReader(new FileReader(schema));
-        CharBuffer target = null;
-        try {
-            target = CharBuffer.allocate((int) schema.length());
-            reader.read(target);
-        } finally {
-            reader.close();
-        }
-        if (target == null) {
-            return "";
-        }
-        return target.toString();
-    }
+	/**
+	 * Delete this checkout.
+	 * @param path the path for the checkout
+	 * @throws IOException if reading or writing fails.
+	 */
+	private void doDelete(final File path) throws IOException {
+		if (path.isDirectory()) {
+			for (File child : path.listFiles()) {
+				doDelete(child);
+			}
+		}
+		if (!path.delete()) {
+			throw new IOException("Could not delete " + path);
+		}
+	}
+
+	@Override
+	public final void delete() {
+		checkDeletedState();
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("delete called for " + mCheckoutName);
+		}
+
+		try {
+			if (!mLock.writeLock().tryLock(LOCK_TIMEOUT, TimeUnit.SECONDS)) {
+				throw new RuntimeException(
+						"Timeout waiting for exclusive lock on database.");
+			}
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
+
+		try {
+			mDeleted = true;
+			doDelete(mDirectory);
+		} catch (IOException e) {
+			throw new RuntimeException("Could not delete checkout.", e);
+		} finally {
+			mLock.writeLock().unlock();
+			mVdbRepository.releaseCheckout(mCheckoutName);
+		}
+	}
+
+	@Override
+	public final String getSchema() throws IOException {
+		File schema = new File(mDirectory, SCHEMA_FILE);
+		if (!schema.canRead()) {
+			throw new RuntimeException("Unable to read schema file");
+		}
+		BufferedReader reader = new BufferedReader(new FileReader(schema));
+		CharBuffer target = null;
+		try {
+			target = CharBuffer.allocate((int) schema.length());
+			reader.read(target);
+		} finally {
+			reader.close();
+		}
+		if (target == null) {
+			return "";
+		}
+		return target.toString();
+	}
+
+	private SQLiteDatabase getUpdateDatabase() throws IOException {
+		if (mUpdateDb == null) {
+			mUpdateDb = SQLiteDatabase.openDatabase(
+					new File(mDirectory, "up_" + SQLITEDB).getAbsolutePath(),
+					null /* cursor factory */,
+					SQLiteDatabase.OPEN_READWRITE);
+		}
+		return mUpdateDb;
+	}
+
+	private void finishUpdate(SQLiteDatabase db, String newSchema)
+			throws IOException {
+		File upDbFile = new File(mUpdateDb.getPath());
+		File currentDbFile =
+				new File(mDirectory, SQLITEDB);
+
+		if (!currentDbFile.delete()) {
+			throw new RuntimeException("Unable to delete current.");
+		}
+		if (!upDbFile.renameTo(currentDbFile)) {
+			throw new RuntimeException("Unable to move file in place.");
+		}
+
+		File schemaFile = new File(mDirectory, SCHEMA_FILE);
+		if (!schemaFile.canWrite()) {
+			throw new RuntimeException("Unable to write schema file");
+		}
+
+		FileOutputStream fos = new FileOutputStream(schemaFile);
+		fos.write(newSchema.getBytes("utf8"));
+		fos.close();
+		db.close();
+	}
+
+	@Override
+	public void updateDatabase(Schema newSchema) throws IOException {
+		// Get the database
+		SQLiteDatabase updateDb = getUpdateDatabase();
+
+		// Build the initializer for the update db.
+		Metadata updateMetadata =
+				AvroContentProvider.makeMetadata(newSchema);
+		DatabaseInitializer initializer =
+				new DatabaseInitializer(newSchema.getNamespace(),
+						updateMetadata, newSchema.toString());
+
+		// Fill in the schema for the updated database.
+		initializer.onCreate(updateDb);
+
+		// Now attach the old database
+		updateDb.execSQL("ATTACH DATABASE '"
+				+ new File(mDirectory, SQLITEDB).getAbsolutePath()
+				+ "' AS old");
+
+		// Now copy all the data over.
+		Metadata masterMetadata =
+				AvroContentProvider.makeMetadata(Schema.parse(getSchema()));
+		initializer.updateCopy(updateDb, masterMetadata);
+
+		// Now finish
+		finishUpdate(updateDb, newSchema.toString());
+	}
 }

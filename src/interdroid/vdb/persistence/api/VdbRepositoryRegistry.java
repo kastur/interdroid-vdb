@@ -112,14 +112,27 @@ public final class VdbRepositoryRegistry {
         if (mRepositories.containsKey(repositoryName)) {
             repo = mRepositories.get(repositoryName);
         } else {
-            File repoDir = context.getDir("git-" + repositoryName,
-                    Context.MODE_WORLD_READABLE | Context.MODE_WORLD_WRITEABLE);
+            File repoDir = getRepositoryDir(context, repositoryName);
             // If it does not exist, it will be initialized
             repo = new VdbRepositoryImpl(repositoryName,
                     repoDir, initializer);
             mRepositories.put(repositoryName, repo);
         }
         return repo;
+    }
+
+    /**
+     * Returns the directory for a repository.
+     *
+     * @param context The context to work in
+     * @param repositoryName the name of the repo
+     * @return the repository directory as a File.
+     */
+    private static File getRepositoryDir(final Context context,
+            final String repositoryName) {
+        File repoDir = context.getDir("git-" + repositoryName,
+                Context.MODE_WORLD_READABLE | Context.MODE_WORLD_WRITEABLE);
+        return repoDir;
     }
 
     /**
@@ -161,4 +174,49 @@ public final class VdbRepositoryRegistry {
         }
         return null;
     }
+
+    public void deleteRepository(final Context context, String string) {
+        LOG.debug("Removing repo: {}", string);
+        mRepositories.remove(string);
+        File repoDir = getRepositoryDir(context, string);
+        LOG.debug("Removing directory: {}", repoDir);
+        LOG.debug("Removed: {}", removeDirectory(repoDir));
+    }
+
+    /**
+     * Remove a directory and all of the contents.
+     * @param directory the directory to remove
+     * @return true if it was deleted.
+     */
+    public static boolean removeDirectory(File directory) {
+
+        if (directory == null)
+            return false;
+        if (!directory.exists())
+            return true;
+        if (!directory.isDirectory())
+            return false;
+
+        String[] list = directory.list();
+
+        if (list != null) {
+            for (int i = 0; i < list.length; i++) {
+                File entry = new File(directory, list[i]);
+
+                if (entry.isDirectory())
+                {
+                    if (!removeDirectory(entry))
+                        return false;
+                }
+                else
+                {
+                    if (!entry.delete())
+                        return false;
+                }
+            }
+        }
+
+        return directory.delete();
+    }
+
 }

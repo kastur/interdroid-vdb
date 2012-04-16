@@ -123,6 +123,18 @@ public class VdbProviderRegistry {
         public RepositoryInfo(final RepositoryConf conf) {
             mConf = conf;
         }
+
+        RepositoryConf getConf() {
+            return mConf;
+        }
+
+        GenericContentProvider getProvider() {
+            return mProvider;
+        }
+
+        public void setProvider(GenericContentProvider provider) {
+            mProvider = provider;
+        }
     }
 
     /**
@@ -172,9 +184,9 @@ public class VdbProviderRegistry {
      */
     public final void registerRepository(final RepositoryConf repoConf) {
         RepositoryInfo repoInfo = new RepositoryInfo(repoConf);
-        if (!REPOS.containsKey(repoInfo.mConf.getName())) {
-            LOG.debug("Storing into repoInfos: {}", repoInfo.mConf.getName());
-            REPOS.put(repoInfo.mConf.getName(), repoInfo);
+        if (!REPOS.containsKey(repoInfo.getConf().getName())) {
+            LOG.debug("Storing into repoInfos: {}", repoInfo.getConf());
+            REPOS.put(repoInfo.getConf().getName(), repoInfo);
         }
     }
 
@@ -200,26 +212,26 @@ public class VdbProviderRegistry {
      */
     private void buildProvider(final Context context, final RepositoryInfo info)
             throws IOException {
-        LOG.debug("Building provider for: {}", info.mConf.getName());
+        LOG.debug("Building provider for: {}", info.getConf());
         try {
-            if (info.mProvider == null) {
-                if (info.mConf.getAvroSchema() != null) {
-                    info.mProvider =
-                            new AvroContentProvider(info.mConf.getAvroSchema());
+            if (info.getProvider() == null) {
+                if (info.getConf().getAvroSchema() != null) {
+                    info.setProvider(
+                            new AvroContentProvider(info.getConf().getAvroSchema()));
                 } else {
-                    info.mProvider = (GenericContentProvider)
+                    info.setProvider((GenericContentProvider)
                             Class.forName(
-                                    info.mConf.getContentProvider())
-                                    .newInstance();
+                                    info.getConf().getContentProvider())
+                                    .newInstance());
                 }
-                initializeRepo(mContext, info.mConf.getName(),
-                        info.mProvider.buildInitializer());
+                initializeRepo(mContext, info.getConf().getName(),
+                        info.getProvider().buildInitializer());
 
                 // Do this at the end, since onCreate will be called in child
                 // We want everything to be registered prior to this happening.
                 LOG.debug("Attaching context: {} to provider.", context);
-                info.mProvider.attachInfo(context, null);
-                LOG.debug("Initialized Repository: " + info.mConf.getName());
+                info.getProvider().attachInfo(context, null);
+                LOG.debug("Initialized Repository: " + info.getConf().getName());
             }
         } catch (IllegalAccessException e) {
             throw new RuntimeException(e);
@@ -243,7 +255,7 @@ public class VdbProviderRegistry {
         } catch (IOException e) {
             throw new RuntimeException("Unable to build provider.", e);
         }
-        return info.mProvider;
+        return info.getProvider();
     }
 
     /**
@@ -303,9 +315,9 @@ public class VdbProviderRegistry {
             }
         } else {
             // Make sure provider is initialized
-            initByName(info.mConf.getName());
+            initByName(info.getConf().getName());
             LOG.debug("Asking provider for type: {}", uri);
-            type = info.mProvider.getType(uri);
+            type = info.getProvider().getType(uri);
         }
         LOG.debug("Returning type: {}", type);
         return type;
@@ -331,11 +343,13 @@ public class VdbProviderRegistry {
         ArrayList<Map<String, Object>> repositories =
                 new ArrayList<Map<String, Object>>();
         for (RepositoryInfo info : REPOS.values()) {
+            LOG.debug("Repo: {}", info.getConf());
+
             // We exclude all interdroid repositories
-            if (!info.mConf.getName().startsWith("interdroid.vdb")) {
+            if (!info.getConf().getName().startsWith("interdroid.vdb")) {
                 HashMap<String, Object> map = new HashMap<String, Object>();
-                map.put(REPOSITORY_ID, info.mConf.getName().hashCode());
-                map.put(REPOSITORY_NAME, info.mConf.getName());
+                map.put(REPOSITORY_ID, info.getConf().getName().hashCode());
+                map.put(REPOSITORY_NAME, info.getConf().getName());
                 repositories.add(map);
             }
         }
@@ -349,8 +363,8 @@ public class VdbProviderRegistry {
         ArrayList<String> repositories = new ArrayList<String>();
         for (RepositoryInfo info : REPOS.values()) {
             // We exclude all interdroid repositories
-            if (!info.mConf.getName().startsWith("interdroid.vdb")) {
-                repositories.add(info.mConf.getName());
+            if (!info.getConf().getName().startsWith("interdroid.vdb")) {
+                repositories.add(info.getConf().getName());
             }
         }
         return repositories;
@@ -367,14 +381,14 @@ public class VdbProviderRegistry {
         LOG.debug("Getting repos for: {}", email);
         for (RepositoryInfo info : REPOS.values()) {
             // We exclude all interdroid repositories
-            if (!info.mConf.getName().startsWith("interdroid.vdb")) {
+            if (!info.getConf().getName().startsWith("interdroid.vdb")) {
                 Map<String, Object> map = new HashMap<String, Object>();
-                map.put(REPOSITORY_NAME, info.mConf.getName());
+                map.put(REPOSITORY_NAME, info.getConf().getName());
                 // Make sure it is initialized
-                initByName(info.mConf.getName());
+                initByName(info.getConf().getName());
                 // Pull the repo out
                 VdbRepository repo = VdbRepositoryRegistry.getInstance()
-                        .getRepository(mContext, info.mConf.getName());
+                        .getRepository(mContext, info.getConf().getName());
                 // Is it a peer?
                 if (null != repo.getRemoteInfo(email)) {
                     map.put(REPOSITORY_IS_PEER, true);
@@ -387,5 +401,9 @@ public class VdbProviderRegistry {
         }
 
         return result;
+    }
+
+    public void unregister(String string) {
+        REPOS.remove(string);
     }
 }

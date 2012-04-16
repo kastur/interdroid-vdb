@@ -634,6 +634,9 @@ public abstract class GenericContentProvider extends ContentProvider {
             int count = db.delete(escapeName(entityInfo),
                     prepareWhereClause(where, result, entityInfo),
                     prepareWhereArgs(whereArgs, result, entityInfo));
+            LOG.debug("Deleted: {} {}", count, whereArgs[0]);
+
+            onPostDelete(uri, where, whereArgs);
 
             getContext().getContentResolver().notifyChange(uri, null);
             return count;
@@ -641,6 +644,19 @@ public abstract class GenericContentProvider extends ContentProvider {
             vdbBranch.releaseDatabase();
         }
     }
+
+
+    /**
+     * Called when an update is complete for subclasses to perform operations.
+     * @param uri the uri being updated
+     * @param where the where clause
+     * @param whereArgs the arguments to the where clause
+     */
+    protected void onPostDelete(final Uri uri, final String where,
+            final String[] whereArgs) {
+        LOG.debug("No onPostDelete.");
+    }
+
 
     /**
      * Called when an update is complete for subclasses to perform operations.
@@ -651,7 +667,7 @@ public abstract class GenericContentProvider extends ContentProvider {
      */
     protected void onPostUpdate(final Uri uri, final ContentValues values,
             final String where, final String[] whereArgs) {
-
+        LOG.debug("No onPostUpdate.");
     }
 
     /**
@@ -662,6 +678,6 @@ public abstract class GenericContentProvider extends ContentProvider {
      * @param userValues the values being inserted
      */
     protected void onPostInsert(final Uri uri, final ContentValues userValues) {
-
+        LOG.debug("No onPostInsert.");
     }
 }
