@@ -177,7 +177,7 @@ public abstract class GenericContentProvider extends ContentProvider {
             }
         }
         LOG.debug("Fetched repository.");
-        onAttach(context, info);
+
         LOG.debug("Done handling attachment.");
     }
 
