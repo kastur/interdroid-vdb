@@ -190,10 +190,9 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
     public final void onPostUpdate(final Uri uri, final ContentValues values,
             final String where, final String[] whereArgs) {
         try {
-            LOG.debug("Migrating DB.");
+            LOG.debug("Migrating DB: {} {}", values, whereArgs);
             migrateDb(
-                    values.getAsString(
-                            AvroSchemaRegistrationHandler.KEY_NAMESPACE),
+                    whereArgs[0],
                     values.getAsString(AvroSchemaRegistrationHandler.KEY_SCHEMA));
         } catch (IOException e) {
             throw new RuntimeException("Error updating database.");
@@ -204,11 +203,12 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
     public final void onPostInsert(final Uri uri,
             final ContentValues userValues) {
         LOG.debug("On post insert: {}", userValues);
-        registerRepository(
-                userValues.getAsString(
-                        AvroSchemaRegistrationHandler.KEY_NAMESPACE),
-                        userValues.getAsString(
-                                AvroSchemaRegistrationHandler.KEY_SCHEMA));
+        String name = userValues.getAsString(
+                AvroSchemaRegistrationHandler.KEY_NAMESPACE);
+        String schema = userValues.getAsString(
+                AvroSchemaRegistrationHandler.KEY_SCHEMA);
+        LOG.debug("Registering: {} {}", name, schema);
+        registerRepository(name, schema);
     }
 
     @Override
@@ -218,11 +218,11 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
         VdbRepositoryRegistry.getInstance().deleteRepository(getContext(),
                 whereArgs[0]);
         try {
-			new VdbProviderRegistry(getContext()).unregister(whereArgs[0]);
-		} catch (IOException e) {
-			// TODO: Auto-generated catch block
-			e.printStackTrace();
-		}
+            new VdbProviderRegistry(getContext()).unregister(whereArgs[0]);
+        } catch (IOException e) {
+            // TODO: Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
 
