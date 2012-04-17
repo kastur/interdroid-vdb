@@ -274,7 +274,7 @@ public abstract class GenericContentProvider extends ContentProvider {
 
         ContentValues values;
         if (userValues != null) {
-            values = sanitize(userValues);
+            values = userValues;
         } else {
             values = new ContentValues();
         }
@@ -317,7 +317,7 @@ public abstract class GenericContentProvider extends ContentProvider {
                                 result.parentEntityIdentifiers.size() - 1));
             }
             long rowId = db.insert(escapeName(entityInfo),
-                    entityInfo.key.get(0).fieldName, values);
+                    entityInfo.key.get(0).fieldName, sanitize(values));
             if (rowId > 0) {
                 returnUri = ContentUris.withAppendedId(uri, rowId);
                 getContext().getContentResolver().notifyChange(returnUri, null);
@@ -382,13 +382,11 @@ public abstract class GenericContentProvider extends ContentProvider {
         // TODO: (emilian) default sort order
 
         try {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Querying with: " + qb.buildQuery(projection,
-                        selection, selectionArgs, null, null, sortOrder, null));
-            }
-            LOG.debug("Projection: " + projection);
-            LOG.debug("Selection: " + selection);
-            LOG.debug("SelectionArgs: " + selectionArgs);
+            LOG.debug("Querying with: " + qb.buildQuery(projection,
+                    selection, selectionArgs, null, null, sortOrder, null));
+            LOG.debug("Projection: {}", projection);
+            LOG.debug("Selection: {}", selection);
+            LOG.debug("SelectionArgs: {}", selectionArgs);
             Cursor c = qb.query(db, projection, selection, selectionArgs,
                     null, null, sortOrder);
             LOG.debug("Got cursor: {}", c);
@@ -447,6 +445,7 @@ public abstract class GenericContentProvider extends ContentProvider {
             count = db.update(escapeName(entityInfo), sanitize(values),
                     prepareWhereClause(where, result, entityInfo),
                     prepareWhereArgs(whereArgs, result, entityInfo));
+
             onPostUpdate(uri, values, where, whereArgs);
         } finally {
             vdbBranch.releaseDatabase();
@@ -634,7 +633,6 @@ public abstract class GenericContentProvider extends ContentProvider {
             int count = db.delete(escapeName(entityInfo),
                     prepareWhereClause(where, result, entityInfo),
                     prepareWhereArgs(whereArgs, result, entityInfo));
-            LOG.debug("Deleted: {} {}", count, whereArgs[0]);
 
             onPostDelete(uri, where, whereArgs);
 
