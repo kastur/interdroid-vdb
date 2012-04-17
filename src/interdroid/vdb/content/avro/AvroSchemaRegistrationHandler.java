@@ -187,11 +187,9 @@ public final class AvroSchemaRegistrationHandler {
                     // Do we need to update the schema then?
                     LOG.debug("Checking if we need to update.");
                     c.moveToFirst();
-                    Schema currentSchema =
-                            Schema.parse(
-                                    c.getString(c.getColumnIndex(KEY_SCHEMA)));
+                    String curString = c.getString(c.getColumnIndex(KEY_SCHEMA));
 
-                    if (!schema.equals(currentSchema)) {
+                    if (curString.equals(schema.toString())) {
                         LOG.debug("Update required.");
 
                         ContentValues values = new ContentValues();
