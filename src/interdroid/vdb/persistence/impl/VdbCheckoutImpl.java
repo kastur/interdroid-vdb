@@ -57,9 +57,13 @@ import org.eclipse.jgit.api.AddCommand;
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.NoFilepatternException;
+import org.eclipse.jgit.errors.AmbiguousObjectException;
 import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.PersonIdent;
+import org.eclipse.jgit.lib.RefUpdate;
+import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 
@@ -258,6 +262,7 @@ public class VdbCheckoutImpl implements VdbCheckout {
 		AddCommand add = git.add();
 		add.addFilepattern(SQLITEDB);
 		add.addFilepattern(SCHEMA_FILE);
+		commit.setMessage(msg);
 		try {
 			add.call();
 		} catch (NoFilepatternException e) {
@@ -269,8 +274,13 @@ public class VdbCheckoutImpl implements VdbCheckout {
 		RevCommit revision;
 		try {
 			revision = commit.call();
+			RefUpdate update = mGitRepository.updateRef(mCheckoutName);
+			update.setNewObjectId(revision);
+			update.setRefLogIdent(author);
+			update.setRefLogMessage(msg, false);
+			update.update();
 		} catch (Exception e) {
-			throw new IOException();
+			throw new IOException(e.getMessage());
 		}
 
 		if (mMergeInfo != null) {
