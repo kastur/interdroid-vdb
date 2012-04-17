@@ -133,7 +133,7 @@ public class AvroContentProvider extends GenericContentProvider {
 	 * @return the initializer for the database for this provider
 	 */
 	public final VdbInitializer buildInitializer() {
-		LOG.debug("Building initializer.");
+		LOG.debug("Building initializer: {}", mNamespace);
 		return new DatabaseInitializer(mNamespace, mMetadata,
 				mSchema.toString());
 	}
