@@ -39,16 +39,13 @@ import interdroid.vdb.persistence.api.MergeInfo;
 import interdroid.vdb.persistence.api.VdbCheckout;
 import interdroid.vdb.persistence.api.VdbInitializer;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.nio.CharBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -57,13 +54,10 @@ import org.eclipse.jgit.api.AddCommand;
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.NoFilepatternException;
-import org.eclipse.jgit.errors.AmbiguousObjectException;
 import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.RefUpdate;
-import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 
@@ -620,22 +614,26 @@ public class VdbCheckoutImpl implements VdbCheckout {
 
 	@Override
 	public final String getSchema() throws IOException {
+		LOG.debug("Getting schema from file: {} {}", mDirectory, SCHEMA_FILE);
 		File schema = new File(mDirectory, SCHEMA_FILE);
 		if (!schema.canRead()) {
 			throw new RuntimeException("Unable to read schema file");
 		}
-		BufferedReader reader = new BufferedReader(new FileReader(schema));
-		CharBuffer target = null;
+		FileInputStream in = null;
+		StringBuffer schemaBuffer = new StringBuffer();
 		try {
-			target = CharBuffer.allocate((int) schema.length());
-			reader.read(target);
+			in = new FileInputStream(schema);
+			int chr;
+			while ((chr = in.read()) != -1) {
+				schemaBuffer.append((char) chr);
+			}
 		} finally {
-			reader.close();
+			if (in != null) {
+				in.close();
+			}
 		}
-		if (target == null) {
-			return "";
-		}
-		return target.toString();
+		LOG.debug("Read schema: {}", schemaBuffer);
+		return schemaBuffer.toString();
 	}
 
 	private SQLiteDatabase getUpdateDatabase() throws IOException {
