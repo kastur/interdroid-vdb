@@ -98,7 +98,7 @@ public class VdbConfig {
         }
 
         public String toString() {
-            return "Name: " + mName + "Provider: " + mContentProvider;
+            return "Name: " + mName + " Provider: " + mContentProvider;
         }
 
         /**
@@ -146,10 +146,10 @@ public class VdbConfig {
             if (xpp.next() != XmlPullParser.END_TAG) {
                 throw new XmlPullParserException(
                         "Expected end tag for Repository."
-                        + "Found " + xpp.getEventType());
+                                + "Found " + xpp.getEventType());
             }
             return obj;
-                }
+        }
 
         /**
          * @return the Name
