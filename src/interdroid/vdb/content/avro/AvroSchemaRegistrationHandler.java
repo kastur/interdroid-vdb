@@ -169,11 +169,14 @@ public final class AvroSchemaRegistrationHandler {
         // Have we already registered?
         Cursor c = null;
         try {
-            LOG.debug("Checking for registration of {}", schema.getName());
+            LOG.debug("Checking for registration of {} {}", schema.getName(),
+                    schema.getNamespace());
             LOG.debug("Querying against URI: {}", URI);
             c = context.getContentResolver().query(URI,
                     new String[] {KEY_SCHEMA},
-                    KEY_NAME + " = ?", new String[] {schema.getName()}, null);
+                    KEY_NAME + " = ? AND " + KEY_NAMESPACE + " = ?",
+                    new String[] {schema.getName(), schema.getNamespace()},
+                    null);
             LOG.debug("Got cursor: {}", c);
             if (c != null) {
                 if (c.getCount() == 0) {
@@ -185,11 +188,13 @@ public final class AvroSchemaRegistrationHandler {
                     context.getContentResolver().insert(URI, values);
                 } else {
                     // Do we need to update the schema then?
-                    LOG.debug("Checking if we need to update.");
+                    LOG.debug("Checking if we need to update: {}", c.getCount());
                     c.moveToFirst();
-                    String curString = c.getString(c.getColumnIndex(KEY_SCHEMA));
+                    String curString = c.getString(0);
+                    LOG.debug("Checking: {} against {}",
+                            curString, schema.toString());
 
-                    if (curString.equals(schema.toString())) {
+                    if (!curString.equals(schema.toString())) {
                         LOG.debug("Update required.");
 
                         ContentValues values = new ContentValues();
