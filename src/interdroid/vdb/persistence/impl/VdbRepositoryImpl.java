@@ -30,6 +30,7 @@
  */
 package interdroid.vdb.persistence.impl;
 
+import interdroid.util.FSUtil;
 import interdroid.vdb.content.avro.SchemaEvolutionValidator;
 import interdroid.vdb.persistence.api.RemoteInfo;
 import interdroid.vdb.persistence.api.VdbCheckout;
@@ -45,6 +46,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.avro.Schema;
+import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.dircache.DirCacheCheckout;
 import org.eclipse.jgit.errors.CheckoutConflictException;
 import org.eclipse.jgit.lib.AnyObjectId;
@@ -218,36 +220,38 @@ public class VdbRepositoryImpl implements VdbRepository {
 			final String reference) throws IOException {
 		LOG.debug("getting checkout: {} {}", subdir, reference);
 		Repository repo = getGitRepository(subdir);
-		Ref ref = repo.getRef(reference);
+		ObjectId headId = repo.resolve(reference);
+		LOG.debug("Head id is: {}", headId);
+
 		File checkoutDir = null;
 
-		if (ref != null) {
+		if (headId != null) {
 			checkoutDir = new File(mRepoDir, subdir);
-			if (checkoutDir.isDirectory()) { // assume it's already checked out
+
+			if (!checkoutDir.isDirectory()) {
+				if (!checkoutDir.mkdir() || !checkoutDir.isDirectory()) {
+					throw new IOException("Could not create checkout directory: "
+							+ subdir);
+				}
+			} else {
+				// Assume already checked out.
 				return checkoutDir;
-			}
-			if (!checkoutDir.mkdir() || !checkoutDir.isDirectory()) {
-				throw new IOException("Could not create checkout directory: "
-						+ subdir);
 			}
 
 			RevWalk revWalk = new RevWalk(repo);
-			AnyObjectId headId = ref.getObjectId();
-			RevCommit headCommit = null;
-			RevTree headTree = null;
-			if (headId != null) {
-				headCommit = revWalk.parseCommit(headId);
-				headTree = headCommit.getTree();
-			}
-			RevCommit newCommit = revWalk.parseCommit(ref.getObjectId());
-			DirCacheCheckout dco = new DirCacheCheckout(repo, headTree,
-					repo.lockDirCache(), newCommit.getTree());
+			RevCommit headCommit = revWalk.parseCommit(headId);
+			RevTree headTree = headCommit.getTree();
+			RevCommit newCommit = revWalk.parseCommit(headId);
+			DirCacheCheckout dco = new DirCacheCheckout(repo, repo.lockDirCache(),
+					headTree);
 			dco.setFailOnConflict(true);
 			try {
 				dco.checkout();
 			} catch (CheckoutConflictException e) {
+				LOG.error("Conflict!", e);
 				throw e;
 			}
+
 		} else {
 			throw new RuntimeException("No such reference.");
 		}
@@ -571,14 +575,22 @@ public class VdbRepositoryImpl implements VdbRepository {
 	@Override
 	public void updateDatabase(String branchName, Schema newSchema) throws IOException {
 		VdbCheckout branch = getBranch(branchName);
-		Schema oldSchema = Schema.parse(branch.getSchema());
-		SchemaEvolutionValidator validator = new SchemaEvolutionValidator();
-		if (validator.validateProjection(newSchema, oldSchema)) {
-			LOG.debug("Schema projection validated.");
+		String old = branch.getSchema();
 
-			branch.updateDatabase(newSchema);
+		// Do we need to run an update?
+		if (!old.equals(newSchema.toString())) {
+			// Need to check projection.
+			Schema oldSchema = Schema.parse(old);
+			SchemaEvolutionValidator validator = new SchemaEvolutionValidator();
+			if (validator.validateProjection(newSchema, oldSchema)) {
+				LOG.debug("Schema projection validated.");
+
+				branch.updateDatabase(newSchema);
+			} else {
+				throw new IOException("Schema does not project.");
+			}
 		} else {
-			throw new IOException("Schema does not project.");
+			LOG.debug("Schema's match. No need to update.");
 		}
 	}
 }
