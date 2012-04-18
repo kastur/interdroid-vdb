@@ -157,14 +157,10 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
                     AvroSchemaRegistrationHandler.KEY_SCHEMA},
                     null, null, null);
             if (c != null) {
-                int namespaceIndex = c.getColumnIndex(
-                        AvroSchemaRegistrationHandler.KEY_NAMESPACE);
-                int schemaIndex = c.getColumnIndex(
-                        AvroSchemaRegistrationHandler.KEY_SCHEMA);
                 while (c.moveToNext()) {
                     result.add(new RepositoryConf(
-                            c.getString(namespaceIndex),
-                            c.getString(schemaIndex)));
+                            c.getString(0),
+                            c.getString(1)));
                 }
             }
         } finally {
@@ -283,9 +279,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
                     AvroSchemaRegistrationHandler.KEY_NAMESPACE + "=?",
                     new String[] {dbUri.getPathSegments().get(0)}, null);
             if (c != null && c.moveToFirst()) {
-                int schemaIndex = c.getColumnIndex(
-                        AvroSchemaRegistrationHandler.KEY_SCHEMA);
-                String schemaString = c.getString(schemaIndex);
+                String schemaString = c.getString(0);
                 LOG.debug("Got schema: {}", schemaString);
                 schema = Schema.parse(schemaString);
             } else {
