@@ -30,6 +30,7 @@
  */
 package interdroid.vdb.persistence.api;
 
+import interdroid.util.FSUtil;
 import interdroid.vdb.content.VdbProviderRegistry;
 import interdroid.vdb.persistence.impl.VdbRepositoryImpl;
 
@@ -180,43 +181,6 @@ public final class VdbRepositoryRegistry {
         mRepositories.remove(string);
         File repoDir = getRepositoryDir(context, string);
         LOG.debug("Removing directory: {}", repoDir);
-        LOG.debug("Removed: {}", removeDirectory(repoDir));
+        LOG.debug("Removed: {}", FSUtil.removeDirectory(repoDir));
     }
-
-    /**
-     * Remove a directory and all of the contents.
-     * @param directory the directory to remove
-     * @return true if it was deleted.
-     */
-    public static boolean removeDirectory(File directory) {
-
-        if (directory == null)
-            return false;
-        if (!directory.exists())
-            return true;
-        if (!directory.isDirectory())
-            return false;
-
-        String[] list = directory.list();
-
-        if (list != null) {
-            for (int i = 0; i < list.length; i++) {
-                File entry = new File(directory, list[i]);
-
-                if (entry.isDirectory())
-                {
-                    if (!removeDirectory(entry))
-                        return false;
-                }
-                else
-                {
-                    if (!entry.delete())
-                        return false;
-                }
-            }
-        }
-
-        return directory.delete();
-    }
-
 }
