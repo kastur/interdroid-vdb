@@ -9,6 +9,8 @@ import java.util.Stack;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.Schema.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A utility class which can verify projection
@@ -28,6 +30,9 @@ import org.apache.avro.Schema.Type;
  *
  */
 public final class SchemaEvolutionValidator {
+	/** Access to Logger. */
+	public static final Logger LOG =
+			LoggerFactory.getLogger(SchemaEvolutionValidator.class);
 
 	/**
 	 * A class which represents the hierarchy of names for a given
@@ -147,6 +152,12 @@ public final class SchemaEvolutionValidator {
 		mWarnings.clear();
 		mErrors.clear();
 
+		// Are the schemas the same? Shortcut the whole deal.
+		if (readerSchema.toString().equals(writerSchema.toString())) {
+			LOG.debug("Schemas are the same");
+			return true;
+		}
+
 		// Put the schema name on the stack to start with
 		Stack<String> names = new Stack<String>();
 		names.push(readerSchema.getFullName());
@@ -234,19 +245,22 @@ public final class SchemaEvolutionValidator {
 		// Recursive validator.
 		SchemaEvolutionValidator validator = new SchemaEvolutionValidator();
 
+		// Are we testing the readers or writers side union?
 		if (readerSchema.getType().equals(Type.UNION)) {
+			// Is the writers type also a union?
 			if (writerSchema.getType().equals(Type.UNION)) {
 				// Loop through the writer's types and verify they will
 				// resolve in the reader.
-				List<Schema> writerTypes = readerSchema.getTypes();
+				List<Schema> writerTypes = writerSchema.getTypes();
 				for (Schema type : writerTypes) {
+					LOG.debug("Testing: {} against: {}", readerSchema, type);
 					names.push(type.getType().toString());
 					if (isNamedType(type.getType())) {
 						names.push(type.getFullName());
 					}
 					// Do a separate sub validation.
 					if (!validator.validateProjection(readerSchema, type)) {
-						mWarnings.put(new FieldName(names),
+						warning(new FieldName(names),
 								"Writer's union branch does not project"
 										+ " to branch in reader's union.");
 					}
@@ -264,7 +278,8 @@ public final class SchemaEvolutionValidator {
 					}
 				}
 				if (!foundBranch) {
-					mErrors.put(new FieldName(names),
+					LOG.error("Writers' type not in readers union.");
+					error(new FieldName(names),
 							"Writer's type is not a branch in reader's union.");
 				}
 			}
@@ -285,15 +300,37 @@ public final class SchemaEvolutionValidator {
 				}
 			}
 			if (!foundBranch) {
-				mErrors.put(new FieldName(names),
+				LOG.error("Readers type can't read any writers branch.");
+				error(new FieldName(names),
 						"Reader's type cannot read any branches in writer's"
 								+ " union.");
 			} else {
-				mWarnings.put(new FieldName(names),
+				LOG.warn("Readers union doesn't read all writers branches.");
+				warning(new FieldName(names),
 						"Reader's type can only read one branch in"
 								+ " writer's union.");
 			}
 		}
+	}
+
+	/**
+	 * Add a warning.
+	 * @param fieldName the field generating the warning
+	 * @param message the message
+	 */
+	private void warning(FieldName fieldName, String message) {
+		LOG.warn("Warning: {} : {}", fieldName, message);
+		mWarnings.put(fieldName, message);
+	}
+
+	/**
+	 * Add an error.
+	 * @param fieldName the field generating the error
+	 * @param message the message
+	 */
+	private void error(FieldName fieldName, String message) {
+		LOG.error("Error: {} : {}", fieldName, message);
+		mErrors.put(fieldName, message);
 	}
 
 	/**
@@ -334,7 +371,8 @@ public final class SchemaEvolutionValidator {
 
 					// No, reader must have a default.
 					if (readerField.defaultValue() == null) {
-						mErrors.put(new FieldName(names),
+						LOG.error("New field without default.");
+						error(new FieldName(names),
 								"New field without a default.");
 					}
 
@@ -348,7 +386,8 @@ public final class SchemaEvolutionValidator {
 		} else if (writerSchema.getType().equals(Type.UNION)) {
 			validateUnionProjection(readerSchema, writerSchema, names);
 		} else {
-			mErrors.put(new FieldName(names), "Reader expected a record.");
+			LOG.error("Reader type not a record.");
+			error(new FieldName(names), "Reader expected a record.");
 		}
 
 	}
@@ -367,17 +406,19 @@ public final class SchemaEvolutionValidator {
 			// Validate that names match
 			if (!readerSchema.getFullName().equals(
 					writerSchema.getFullName())) {
-				mErrors.put(new FieldName(names), "Fixed names don't match.");
+				LOG.error("Fixed names don't match.");
+				error(new FieldName(names), "Fixed names don't match.");
 			}
 
 			// Validate that the sizes are the same
 			if (readerSchema.getFixedSize() != writerSchema.getFixedSize()) {
-				mErrors.put(new FieldName(names), "Fixed sizes don't match.");
+				LOG.error("Fixed sizes don't match");
+				error(new FieldName(names), "Fixed sizes don't match.");
 			}
 		} else if (writerSchema.getType().equals(Type.UNION)) {
 			validateUnionProjection(readerSchema, writerSchema, names);
 		} else {
-			mErrors.put(new FieldName(names), "Reader expected fixed.");
+			error(new FieldName(names), "Reader expected fixed.");
 		}
 
 	}
@@ -396,7 +437,7 @@ public final class SchemaEvolutionValidator {
 			// Verify that the names match
 			if (!readerSchema.getFullName().equals(
 					writerSchema.getFullName())) {
-				mErrors.put(new FieldName(names),
+				error(new FieldName(names),
 						"Enumeration names don't match.");
 			}
 
@@ -405,7 +446,7 @@ public final class SchemaEvolutionValidator {
 			for (String symbol : writerSchema.getEnumSymbols()) {
 				names.push(symbol);
 				if (!readerSymbols.contains(symbol)) {
-					mWarnings.put(new FieldName(names),
+					warning(new FieldName(names),
 							"Writer has an enumeration symbol"
 									+ " which the reader lacks.");
 				}
@@ -414,7 +455,7 @@ public final class SchemaEvolutionValidator {
 		} else if (writerSchema.getType().equals(Type.UNION)) {
 			validateUnionProjection(readerSchema, writerSchema, names);
 		} else {
-			mErrors.put(new FieldName(names), "Reader expected an enumertion.");
+			error(new FieldName(names), "Reader expected an enumertion.");
 		}
 
 	}
@@ -437,7 +478,7 @@ public final class SchemaEvolutionValidator {
 		} else if (writerSchema.getType().equals(Type.UNION)) {
 			validateUnionProjection(readerSchema, writerSchema, names);
 		} else {
-			mErrors.put(new FieldName(names), "Reader expected a map.");
+			error(new FieldName(names), "Reader expected a map.");
 		}
 	}
 
@@ -458,7 +499,7 @@ public final class SchemaEvolutionValidator {
 		} else if (writerSchema.getType().equals(Type.UNION)) {
 			validateUnionProjection(readerSchema, writerSchema, names);
 		} else {
-			mErrors.put(new FieldName(names), "Reader expected an array.");
+			error(new FieldName(names), "Reader expected an array.");
 		}
 
 	}
@@ -503,7 +544,7 @@ public final class SchemaEvolutionValidator {
 			}
 		}
 		if (!isPromotable) {
-			mErrors.put(new FieldName(names),
+			error(new FieldName(names),
 					"Primitive types do not match and cannot be promoted.");
 		}
 
