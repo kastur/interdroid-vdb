@@ -161,7 +161,7 @@ public class DatabaseInitializer implements VdbInitializer {
                     firstField = false;
                 }
                 createSql.append(
-                        DatabaseUtils.sqlEscapeString(field.fieldName));
+                        GenericContentProvider.sanitize(field.fieldName));
                 createSql.append(' ');
                 createSql.append(DatabaseFieldType.INTEGER);
                 createSql.append(" REFERENCES ");
@@ -169,7 +169,7 @@ public class DatabaseInitializer implements VdbInitializer {
                         GenericContentProvider.escapeName(mNamespace,
                                 field.targetEntity));
                 createSql.append('(');
-                createSql.append(field.targetField.fieldName);
+                createSql.append(GenericContentProvider.sanitize(field.targetField.fieldName));
                 createSql.append(')');
                 createSql.append(" DEFERRABLE");
                 LOG.debug("Create SQL now: {}", createSql);
@@ -180,8 +180,8 @@ public class DatabaseInitializer implements VdbInitializer {
                 } else {
                     firstField = false;
                 }
-                createSql.append(
-                        DatabaseUtils.sqlEscapeString(field.fieldName));
+                createSql.append(GenericContentProvider.sanitize(
+                        field.fieldName));
                 createSql.append(' ');
                 createSql.append(field.dbTypeName());
                 if (field.targetEntity != null) {
@@ -190,7 +190,8 @@ public class DatabaseInitializer implements VdbInitializer {
                             GenericContentProvider.escapeName(mNamespace,
                                     field.targetEntity));
                     createSql.append('(');
-                    createSql.append(field.targetField.fieldName);
+                    createSql.append(GenericContentProvider.sanitize(
+                            field.targetField.fieldName));
                     createSql.append(") DEFERRABLE");
                 }
                 LOG.debug("Create SQL Default: {}",
@@ -209,7 +210,8 @@ public class DatabaseInitializer implements VdbInitializer {
             } else {
                 firstField = false;
             }
-            createSql.append(field.fieldName);
+            createSql.append(
+                    GenericContentProvider.sanitize(field.fieldName));
         }
         createSql.append(')');
 

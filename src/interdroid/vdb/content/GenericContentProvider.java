@@ -111,9 +111,9 @@ public abstract class GenericContentProvider extends ContentProvider {
      */
     static String escapeName(final String namespace,
             final EntityInfo info) {
-        return "\"" +
-                escapeName(namespace, info.namespace(), info.name()) +
-                "\"";
+        return "\""
+                + escapeName(namespace, info.namespace(), info.name())
+                + "\"";
     }
 
     /**
@@ -129,11 +129,12 @@ public abstract class GenericContentProvider extends ContentProvider {
         // Don't include the namespace for entities
         // that match our name for simplicity
         if (defaultNamespace.equals(namespace)) {
-            return name.replace('.', '_');
+            return name.replace('.', '_').replace('"', '_');
         } else {
             // But entities in other namespaces we use the
             // full namespace. This shouldn't happen often.
-            return namespace.replace('.', '_') + "_" + name.replace('.', '_');
+            return (namespace.replace('.', '_') + "_"
+                    + name.replace('.', '_')).replace('"', '_');
         }
     }
 
@@ -332,11 +333,15 @@ public abstract class GenericContentProvider extends ContentProvider {
         return returnUri;
     }
 
-    private String sanitize(String fieldName) {
+    static String sanitize(String fieldName) {
         if (fieldName == null) {
             return fieldName;
         }
-        return "\"" + fieldName + "\"";
+        // Assume it is already sanitized
+        if (fieldName.startsWith("\"") && fieldName.endsWith("\"")) {
+            return fieldName;
+        }
+        return "\"" + fieldName.replace('"', '_') + "\"";
     }
 
     @Override
@@ -595,12 +600,8 @@ public abstract class GenericContentProvider extends ContentProvider {
         ContentValues cleanValues = new ContentValues();
         for (Entry<String, Object> val : values.valueSet()) {
             Object value = val.getValue();
-            String cleanName;
-            if (val.getKey().charAt(0) == '\"') {
-                cleanName = val.getKey();
-            } else {
-                cleanName = "\"" + val.getKey() + "\"";
-            }
+            String cleanName = sanitize(val.getKey());
+
             // This really sucks. There is no generic put an object....
             if (value == null) {
                 cleanValues.putNull(cleanName);
