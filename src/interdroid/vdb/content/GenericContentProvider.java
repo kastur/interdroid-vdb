@@ -63,7 +63,6 @@ import android.text.TextUtils;
  * @author nick &lt;palmer@cs.vu.nl&gt;
  */
 public abstract class GenericContentProvider extends ContentProvider {
-
     /**
      * The logger.
      */
@@ -317,7 +316,7 @@ public abstract class GenericContentProvider extends ContentProvider {
                                 result.parentEntityIdentifiers.size() - 1));
             }
             long rowId = db.insert(escapeName(entityInfo),
-                    entityInfo.key.get(0).fieldName, sanitize(values));
+                    sanitize(entityInfo.key.get(0).fieldName), sanitize(values));
             if (rowId > 0) {
                 returnUri = ContentUris.withAppendedId(uri, rowId);
                 getContext().getContentResolver().notifyChange(returnUri, null);
@@ -330,6 +329,13 @@ public abstract class GenericContentProvider extends ContentProvider {
         }
 
         return returnUri;
+    }
+
+    private String sanitize(String fieldName) {
+        if (fieldName == null) {
+            return fieldName;
+        }
+        return DatabaseUtils.sqlEscapeString( fieldName.replace(".", "_"));
     }
 
     @Override
@@ -382,13 +388,14 @@ public abstract class GenericContentProvider extends ContentProvider {
         // TODO: (emilian) default sort order
 
         try {
-            LOG.debug("Querying with: " + qb.buildQuery(projection,
-                    selection, selectionArgs, null, null, sortOrder, null));
+            String query = qb.buildQuery(sanitize(projection),
+                    selection, selectionArgs, null, null, sortOrder, null);
+            LOG.debug("Querying with: {}", query);
             LOG.debug("Projection: {}", projection);
             LOG.debug("Selection: {}", selection);
-            LOG.debug("SelectionArgs: {}", selectionArgs);
-            Cursor c = qb.query(db, projection, selection, selectionArgs,
-                    null, null, sortOrder);
+            LOG.debug("SelectionArgs: {} {}", selectionArgs, selectionArgs == null ? null : selectionArgs.length);
+            Cursor c = qb.query(db, sanitize(projection), selection, selectionArgs,
+                    null, null, sortOrder, null);
             LOG.debug("Got cursor: {}", c);
             if (c != null && getContext() != null) {
                 // Tell the cursor what uri to watch, so it knows
@@ -452,12 +459,12 @@ public abstract class GenericContentProvider extends ContentProvider {
         }
 
         /*
-         TODO: (emilian) implement auto commit support
-         try {
+        TODO: (emilian) implement auto commit support
+        try {
             vdbBranch.commitBranch();
-         } catch(IOException e) {
+        } catch(IOException e) {
             LOG.debug(e.toString());
-         }
+        }
          */
 
         getContext().getContentResolver().notifyChange(uri, null);
@@ -560,6 +567,22 @@ public abstract class GenericContentProvider extends ContentProvider {
             }
         }
         return preparedArgs;
+    }
+
+    /**
+     *
+     * @param values
+     * @return
+     */
+    private String[] sanitize(final String[] values) {
+        String[] ret = null;
+        if (values != null) {
+            ret = new String[values.length];
+            for (int i = 0; i < values.length; i++) {
+                ret[i] = sanitize( values[i] );
+            }
+        }
+        return ret;
     }
 
     /**
