@@ -111,8 +111,9 @@ public abstract class GenericContentProvider extends ContentProvider {
      */
     static String escapeName(final String namespace,
             final EntityInfo info) {
-        return DatabaseUtils.sqlEscapeString(
-                escapeName(namespace, info.namespace(), info.name()));
+        return "\"" +
+                escapeName(namespace, info.namespace(), info.name()) +
+                "\"";
     }
 
     /**
@@ -335,7 +336,7 @@ public abstract class GenericContentProvider extends ContentProvider {
         if (fieldName == null) {
             return fieldName;
         }
-        return DatabaseUtils.sqlEscapeString( fieldName.replace(".", "_"));
+        return "\"" + fieldName + "\"";
     }
 
     @Override
@@ -595,10 +596,10 @@ public abstract class GenericContentProvider extends ContentProvider {
         for (Entry<String, Object> val : values.valueSet()) {
             Object value = val.getValue();
             String cleanName;
-            if (val.getKey().charAt(0) == '\'') {
+            if (val.getKey().charAt(0) == '\"') {
                 cleanName = val.getKey();
             } else {
-                cleanName = "'" + val.getKey() + "'";
+                cleanName = "\"" + val.getKey() + "\"";
             }
             // This really sucks. There is no generic put an object....
             if (value == null) {
