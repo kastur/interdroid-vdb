@@ -240,7 +240,6 @@ public class VdbRepositoryImpl implements VdbRepository {
 			RevWalk revWalk = new RevWalk(repo);
 			RevCommit headCommit = revWalk.parseCommit(headId);
 			RevTree headTree = headCommit.getTree();
-			RevCommit newCommit = revWalk.parseCommit(headId);
 			DirCacheCheckout dco = new DirCacheCheckout(repo, repo.lockDirCache(),
 					headTree);
 			dco.setFailOnConflict(true);
