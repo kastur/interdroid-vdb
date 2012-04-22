@@ -176,9 +176,16 @@ public final class VdbRepositoryRegistry {
         return null;
     }
 
+    /**
+     * Delete a repository.
+     * @param context the context to work in
+     * @param string the name of the repo to delete.
+     */
     public void deleteRepository(final Context context, String string) {
         LOG.debug("Removing repo: {}", string);
-        mRepositories.remove(string);
+        VdbRepositoryImpl impl = mRepositories.remove(string);
+        // Make sure to close the db.
+        impl.close();
         File repoDir = getRepositoryDir(context, string);
         LOG.debug("Removing directory: {}", repoDir);
         LOG.debug("Removed: {}", FSUtil.removeDirectory(repoDir));

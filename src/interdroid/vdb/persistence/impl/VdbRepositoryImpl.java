@@ -30,7 +30,6 @@
  */
 package interdroid.vdb.persistence.impl;
 
-import interdroid.util.FSUtil;
 import interdroid.vdb.content.avro.SchemaEvolutionValidator;
 import interdroid.vdb.persistence.api.RemoteInfo;
 import interdroid.vdb.persistence.api.VdbCheckout;
@@ -43,10 +42,10 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.avro.Schema;
-import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.dircache.DirCacheCheckout;
 import org.eclipse.jgit.errors.CheckoutConflictException;
 import org.eclipse.jgit.lib.AnyObjectId;
@@ -591,6 +590,15 @@ public class VdbRepositoryImpl implements VdbRepository {
 			}
 		} else {
 			LOG.debug("Schema's match. No need to update.");
+		}
+	}
+
+	/**
+	 * Close any open checkouts.
+	 */
+	public void close() {
+		for (Entry<String, VdbCheckoutImpl> checkout : mCheckouts.entrySet()) {
+			checkout.getValue().close();
 		}
 	}
 }

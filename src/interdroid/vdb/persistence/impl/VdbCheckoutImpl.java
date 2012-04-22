@@ -697,5 +697,14 @@ public class VdbCheckoutImpl implements VdbCheckout {
 
 		// Now finish
 		finishUpdate(updateDb, newSchema.toString());
+
+		updateDb.close();
+	}
+
+	/**
+	 * Close the underlying database.
+	 */
+	public void close() {
+		mDb.close();
 	}
 }
