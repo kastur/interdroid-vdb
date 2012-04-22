@@ -185,6 +185,7 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
     @Override
     public final void onPostUpdate(final Uri uri, final ContentValues values,
             final String where, final String[] whereArgs) {
+    	// TODO: Finish implementation of schema migration.
 //		try {
 //			LOG.debug("Migrating DB: {} {}", values, whereArgs);
 ////            migrateDb(
