@@ -185,14 +185,14 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
     @Override
     public final void onPostUpdate(final Uri uri, final ContentValues values,
             final String where, final String[] whereArgs) {
-        try {
-            LOG.debug("Migrating DB: {} {}", values, whereArgs);
-            migrateDb(
-                    whereArgs[0],
-                    values.getAsString(AvroSchemaRegistrationHandler.KEY_SCHEMA));
-        } catch (IOException e) {
-            throw new RuntimeException("Error updating database.");
-        }
+//		try {
+//			LOG.debug("Migrating DB: {} {}", values, whereArgs);
+////            migrateDb(
+////                    whereArgs[0],
+////                    values.getAsString(AvroSchemaRegistrationHandler.KEY_SCHEMA));
+//		} catch (IOException e) {
+//			throw new RuntimeException("Error updating database.");
+//		}
     }
 
     @Override
