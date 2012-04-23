@@ -185,7 +185,9 @@ public final class VdbRepositoryRegistry {
 		LOG.debug("Removing repo: {}", string);
 		VdbRepositoryImpl impl = mRepositories.remove(string);
 		// Make sure to close the db.
-		impl.close();
+		if (impl != null) {
+			impl.close();
+		}
 		File repoDir = getRepositoryDir(context, string);
 		LOG.debug("Removing directory: {}", repoDir);
 		LOG.debug("Removed: {}", FSUtil.removeDirectory(repoDir));
