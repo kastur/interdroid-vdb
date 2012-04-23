@@ -30,6 +30,7 @@
  */
 package interdroid.vdb.content.avro;
 
+import interdroid.util.DbUtil;
 import interdroid.vdb.Authority;
 import interdroid.vdb.content.EntityUriBuilder;
 
@@ -124,9 +125,9 @@ public final class AvroSchemaRegistrationHandler {
 			if (c != null) {
 				LOG.debug("Cursor has: {}", c.getCount());
 				c.moveToFirst();
-				int name = c.getColumnIndex(KEY_NAME);
-				int namespace = c.getColumnIndex(KEY_NAMESPACE);
-				int schema = c.getColumnIndex(KEY_SCHEMA);
+				int name = DbUtil.getFieldIndex(c, KEY_NAME);
+				int namespace =  DbUtil.getFieldIndex(c, KEY_NAMESPACE);
+				int schema =  DbUtil.getFieldIndex(c, KEY_SCHEMA);
 
 				do {
 					Map<String, Object> map = new HashMap<String, Object>();

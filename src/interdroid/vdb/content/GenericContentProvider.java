@@ -31,11 +31,11 @@
 package interdroid.vdb.content;
 
 import java.io.IOException;
-import java.util.Map.Entry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import interdroid.util.DbUtil;
 import interdroid.vdb.content.EntityUriMatcher.UriMatch;
 import interdroid.vdb.content.metadata.EntityInfo;
 import interdroid.vdb.content.metadata.Metadata;
@@ -317,7 +317,8 @@ public abstract class GenericContentProvider extends ContentProvider {
 								result.parentEntityIdentifiers.size() - 1));
 			}
 			long rowId = db.insert(escapeName(entityInfo),
-					sanitize(entityInfo.key.get(0).fieldName), sanitize(values));
+					sanitize(entityInfo.key.get(0).fieldName),
+					DbUtil.quoteColumnNames(values));
 			if (rowId > 0) {
 				returnUri = ContentUris.withAppendedId(uri, rowId);
 				getContext().getContentResolver().notifyChange(returnUri, null);
@@ -393,13 +394,15 @@ public abstract class GenericContentProvider extends ContentProvider {
 		// TODO: (emilian) default sort order
 
 		try {
-			String query = qb.buildQuery(sanitize(projection),
+			String query = qb.buildQuery(DbUtil.quoteColumnNames(projection),
 					selection, selectionArgs, null, null, sortOrder, null);
 			LOG.debug("Querying with: {}", query);
-			LOG.debug("Projection: {}", projection);
+			LOG.debug("Projection: {}", DbUtil.quoteColumnNames(projection),
+					projection == null ? null : projection.length);
 			LOG.debug("Selection: {}", selection);
 			LOG.debug("SelectionArgs: {} {}", selectionArgs, selectionArgs == null ? null : selectionArgs.length);
-			Cursor c = qb.query(db, sanitize(projection), selection, selectionArgs,
+			Cursor c = qb.query(db, DbUtil.quoteColumnNames(projection),
+					selection, selectionArgs,
 					null, null, sortOrder, null);
 			LOG.debug("Got cursor: {}", c);
 			if (c != null && getContext() != null) {
@@ -454,7 +457,8 @@ public abstract class GenericContentProvider extends ContentProvider {
 		}
 
 		try {
-			count = db.update(escapeName(entityInfo), sanitize(values),
+			count = db.update(escapeName(entityInfo),
+					DbUtil.quoteColumnNames(values),
 					prepareWhereClause(where, result, entityInfo),
 					prepareWhereArgs(whereArgs, result, entityInfo));
 
@@ -572,63 +576,6 @@ public abstract class GenericContentProvider extends ContentProvider {
 			}
 		}
 		return preparedArgs;
-	}
-
-	/**
-	 *
-	 * @param values
-	 * @return
-	 */
-	private String[] sanitize(final String[] values) {
-		String[] ret = null;
-		if (values != null) {
-			ret = new String[values.length];
-			for (int i = 0; i < values.length; i++) {
-				ret[i] = sanitize( values[i] );
-			}
-		}
-		return ret;
-	}
-
-	/**
-	 * Android does not quote identifiers so we have to handle that.
-	 * @param values the values to be quoted
-	 * @return a sanitized version of the values.
-	 */
-	private ContentValues sanitize(final ContentValues values) {
-		ContentValues cleanValues = new ContentValues();
-		for (Entry<String, Object> val : values.valueSet()) {
-			Object value = val.getValue();
-			String cleanName = sanitize(val.getKey());
-
-			// This really sucks. There is no generic put an object....
-			if (value == null) {
-				cleanValues.putNull(cleanName);
-			} else if (value instanceof Boolean) {
-				cleanValues.put(cleanName, (Boolean) value);
-			} else if (value instanceof Byte) {
-				cleanValues.put(cleanName, (Byte) value);
-			} else if (value instanceof byte[]) {
-				cleanValues.put(cleanName, (byte[]) value);
-			} else if (value instanceof Double) {
-				cleanValues.put(cleanName, (Double) value);
-			} else if (value instanceof Float) {
-				cleanValues.put(cleanName, (Float) value);
-			} else if (value instanceof Integer) {
-				cleanValues.put(cleanName, (Integer) value);
-			} else if (value instanceof Long) {
-				cleanValues.put(cleanName, (Long) value);
-			} else if (value instanceof Short) {
-				cleanValues.put(cleanName, (Short) value);
-			} else if (value instanceof String) {
-				cleanValues.put(cleanName, (String) value);
-			} else {
-				throw new RuntimeException(
-						"Don't know how to add value of type: "
-								+ value.getClass().getCanonicalName());
-			}
-		}
-		return cleanValues;
 	}
 
 	@Override
