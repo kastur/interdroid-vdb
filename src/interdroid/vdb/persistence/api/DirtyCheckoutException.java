@@ -38,9 +38,9 @@ package interdroid.vdb.persistence.api;
  */
 public class DirtyCheckoutException extends Exception {
 
-    /**
-     * The serial version UID.
-     */
-    private static final long serialVersionUID = 1L;
+	/**
+	 * The serial version UID.
+	 */
+	private static final long serialVersionUID = 1L;
 
 }

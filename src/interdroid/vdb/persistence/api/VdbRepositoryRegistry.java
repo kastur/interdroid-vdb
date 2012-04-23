@@ -57,22 +57,22 @@ import android.content.Context;
  *
  */
 public final class VdbRepositoryRegistry {
-    /**
-     * Access to logger.
-     */
-    private static final Logger LOG = LoggerFactory
-            .getLogger(VdbRepositoryRegistry.class);
+	/**
+	 * Access to logger.
+	 */
+	private static final Logger LOG = LoggerFactory
+			.getLogger(VdbRepositoryRegistry.class);
 
-    /**
-     * The singleton of this in the sytem.
-     */
-    private static final VdbRepositoryRegistry SINGLETON =
-            new VdbRepositoryRegistry();
+	/**
+	 * The singleton of this in the sytem.
+	 */
+	private static final VdbRepositoryRegistry SINGLETON =
+			new VdbRepositoryRegistry();
 
-    /**
-     * Prevent construction.
-     */
-    private VdbRepositoryRegistry() {
+	/**
+	 * Prevent construction.
+	 */
+	private VdbRepositoryRegistry() {
 //        // disable strict host checking for push/pull ssh connections
 //        SshSessionFactory.setInstance( new SshConfigSessionFactory() {
 //            @Override
@@ -81,113 +81,113 @@ public final class VdbRepositoryRegistry {
 //                session.setConfig("StrictHostKeyChecking", "no");
 //            }
 //        });
-    }
+	}
 
-    /**
-     * @return the instance of the registry.
-     */
-    public static VdbRepositoryRegistry getInstance() {
-        return SINGLETON;
-    }
+	/**
+	 * @return the instance of the registry.
+	 */
+	public static VdbRepositoryRegistry getInstance() {
+		return SINGLETON;
+	}
 
-    /**
-     * The repositories known to this instance.
-     */
-    private Map<String, VdbRepositoryImpl> mRepositories
-        = new HashMap<String, VdbRepositoryImpl>();
+	/**
+	 * The repositories known to this instance.
+	 */
+	private Map<String, VdbRepositoryImpl> mRepositories
+		= new HashMap<String, VdbRepositoryImpl>();
 
-    /**
-     * Adds the repository to the registry and constructs it.
-     * @param context the context the add is being done in
-     * @param repositoryName the name of the repository
-     * @param initializer the initializer for the repository
-     * @return the constructed repository
-     * @throws IOException if reading or writing fails.
-     */
-    public synchronized VdbRepository addRepository(final Context context,
-            final String repositoryName, final VdbInitializer initializer)
-    throws IOException {
-        LOG.debug("Adding repo: {}", repositoryName);
+	/**
+	 * Adds the repository to the registry and constructs it.
+	 * @param context the context the add is being done in
+	 * @param repositoryName the name of the repository
+	 * @param initializer the initializer for the repository
+	 * @return the constructed repository
+	 * @throws IOException if reading or writing fails.
+	 */
+	public synchronized VdbRepository addRepository(final Context context,
+			final String repositoryName, final VdbInitializer initializer)
+	throws IOException {
+		LOG.debug("Adding repo: {}", repositoryName);
 
-        VdbRepositoryImpl repo;
-        if (mRepositories.containsKey(repositoryName)) {
-            repo = mRepositories.get(repositoryName);
-        } else {
-            File repoDir = getRepositoryDir(context, repositoryName);
-            // If it does not exist, it will be initialized
-            repo = new VdbRepositoryImpl(repositoryName,
-                    repoDir, initializer);
-            mRepositories.put(repositoryName, repo);
-        }
-        return repo;
-    }
+		VdbRepositoryImpl repo;
+		if (mRepositories.containsKey(repositoryName)) {
+			repo = mRepositories.get(repositoryName);
+		} else {
+			File repoDir = getRepositoryDir(context, repositoryName);
+			// If it does not exist, it will be initialized
+			repo = new VdbRepositoryImpl(repositoryName,
+					repoDir, initializer);
+			mRepositories.put(repositoryName, repo);
+		}
+		return repo;
+	}
 
-    /**
-     * Returns the directory for a repository.
-     *
-     * @param context The context to work in
-     * @param repositoryName the name of the repo
-     * @return the repository directory as a File.
-     */
-    private static File getRepositoryDir(final Context context,
-            final String repositoryName) {
-        File repoDir = context.getDir("git-" + repositoryName,
-                Context.MODE_WORLD_READABLE | Context.MODE_WORLD_WRITEABLE);
-        return repoDir;
-    }
+	/**
+	 * Returns the directory for a repository.
+	 *
+	 * @param context The context to work in
+	 * @param repositoryName the name of the repo
+	 * @return the repository directory as a File.
+	 */
+	private static File getRepositoryDir(final Context context,
+			final String repositoryName) {
+		File repoDir = context.getDir("git-" + repositoryName,
+				Context.MODE_WORLD_READABLE | Context.MODE_WORLD_WRITEABLE);
+		return repoDir;
+	}
 
-    /**
-     * Returns a repository with the given name.
-     * @param context the context being requested from
-     * @param repositoryName the name of the repository
-     * @return the requested repository
-     * @throws IOException if reading or writing fails
-     */
-    public synchronized VdbRepository getRepository(final Context context,
-            final String repositoryName) throws IOException {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Getting repository: {} : {}", repositoryName,
-                    mRepositories.size());
-        }
-        // Make sure the repository has been initialized.
-        new VdbProviderRegistry(context).initByName(repositoryName);
-        if (LOG.isDebugEnabled()) {
-            for (String repo : mRepositories.keySet()) {
-                LOG.debug("Repo: {}", repo);
-            }
-        }
-        return mRepositories.get(repositoryName);
-    }
+	/**
+	 * Returns a repository with the given name.
+	 * @param context the context being requested from
+	 * @param repositoryName the name of the repository
+	 * @return the requested repository
+	 * @throws IOException if reading or writing fails
+	 */
+	public synchronized VdbRepository getRepository(final Context context,
+			final String repositoryName) throws IOException {
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("Getting repository: {} : {}", repositoryName,
+					mRepositories.size());
+		}
+		// Make sure the repository has been initialized.
+		new VdbProviderRegistry(context).initByName(repositoryName);
+		if (LOG.isDebugEnabled()) {
+			for (String repo : mRepositories.keySet()) {
+				LOG.debug("Repo: {}", repo);
+			}
+		}
+		return mRepositories.get(repositoryName);
+	}
 
-    /**
-     * Returns the underlying jGit repository for the repository with the given
-     * name.
-     * @param context the context being requested in
-     * @param name the name of the desired repository
-     * @return the jGit Repository
-     * @throws IOException if reading or writing fail
-     */
-    public Repository getJGitRepository(final Context context,
-            final String name) throws IOException {
-        VdbRepository repo = getRepository(context, name);
-        if (repo != null) {
-            return ((VdbRepositoryImpl) repo).getGitRepository();
-        }
-        return null;
-    }
+	/**
+	 * Returns the underlying jGit repository for the repository with the given
+	 * name.
+	 * @param context the context being requested in
+	 * @param name the name of the desired repository
+	 * @return the jGit Repository
+	 * @throws IOException if reading or writing fail
+	 */
+	public Repository getJGitRepository(final Context context,
+			final String name) throws IOException {
+		VdbRepository repo = getRepository(context, name);
+		if (repo != null) {
+			return ((VdbRepositoryImpl) repo).getGitRepository();
+		}
+		return null;
+	}
 
-    /**
-     * Delete a repository.
-     * @param context the context to work in
-     * @param string the name of the repo to delete.
-     */
-    public void deleteRepository(final Context context, String string) {
-        LOG.debug("Removing repo: {}", string);
-        VdbRepositoryImpl impl = mRepositories.remove(string);
-        // Make sure to close the db.
-        impl.close();
-        File repoDir = getRepositoryDir(context, string);
-        LOG.debug("Removing directory: {}", repoDir);
-        LOG.debug("Removed: {}", FSUtil.removeDirectory(repoDir));
-    }
+	/**
+	 * Delete a repository.
+	 * @param context the context to work in
+	 * @param string the name of the repo to delete.
+	 */
+	public void deleteRepository(final Context context, String string) {
+		LOG.debug("Removing repo: {}", string);
+		VdbRepositoryImpl impl = mRepositories.remove(string);
+		// Make sure to close the db.
+		impl.close();
+		File repoDir = getRepositoryDir(context, string);
+		LOG.debug("Removing directory: {}", repoDir);
+		LOG.debug("Removed: {}", FSUtil.removeDirectory(repoDir));
+	}
 }

@@ -41,77 +41,77 @@ package interdroid.vdb;
  *
  */
 public final class Actions {
-    /** Don't allow construction of this class. **/
-    private Actions() { }
+	/** Don't allow construction of this class. **/
+	private Actions() { }
 
-    /** Base for all actions. **/
-    private static final String ACTION_BASE =
-            "interdroid.vdb.action.";
+	/** Base for all actions. **/
+	private static final String ACTION_BASE =
+			"interdroid.vdb.action.";
 
-    /** The Commit activity action. **/
-    public static final String ACTION_COMMIT =
-            ACTION_BASE + "COMMIT";
+	/** The Commit activity action. **/
+	public static final String ACTION_COMMIT =
+			ACTION_BASE + "COMMIT";
 
-    /** Add a branch action. **/
-    public static final String ACTION_ADD_BRANCH =
-            ACTION_BASE + "ADD_BRANCH";
+	/** Add a branch action. **/
+	public static final String ACTION_ADD_BRANCH =
+			ACTION_BASE + "ADD_BRANCH";
 
-    /** Edit a remote hub action. **/
-    public static final String ACTION_EDIT_REMOTE =
-            ACTION_BASE + "EDIT_REMOTE";
+	/** Edit a remote hub action. **/
+	public static final String ACTION_EDIT_REMOTE =
+			ACTION_BASE + "EDIT_REMOTE";
 
-    /** Add a peer action. **/
-    public static final String ACTION_ADD_REMOTE =
-            ACTION_BASE + "ADD_REMOTE";
+	/** Add a peer action. **/
+	public static final String ACTION_ADD_REMOTE =
+			ACTION_BASE + "ADD_REMOTE";
 
-    /** Manage local branches action. **/
-    public static final String ACTION_MANAGE_LOCAL_BRANCHES =
-            ACTION_BASE + "MANAGE_LOCAL_BRANCHES";
+	/** Manage local branches action. **/
+	public static final String ACTION_MANAGE_LOCAL_BRANCHES =
+			ACTION_BASE + "MANAGE_LOCAL_BRANCHES";
 
-    /** Manage all remote repositories action. **/
-    public static final String ACTION_MANAGE_REMOTES =
-            ACTION_BASE + "MANAGE_REMOTES";
+	/** Manage all remote repositories action. **/
+	public static final String ACTION_MANAGE_REMOTES =
+			ACTION_BASE + "MANAGE_REMOTES";
 
-    /** Add a peer action. **/
-    public static final String ACTION_ADD_PEER =
-            ACTION_BASE + "ADD_PEER";
+	/** Add a peer action. **/
+	public static final String ACTION_ADD_PEER =
+			ACTION_BASE + "ADD_PEER";
 
-    /** Manage all peers action. **/
-    public static final String ACTION_MANAGE_PEERS =
-            ACTION_BASE + "MANAGE_PEERS";
+	/** Manage all peers action. **/
+	public static final String ACTION_MANAGE_PEERS =
+			ACTION_BASE + "MANAGE_PEERS";
 
-    /** Manage the properties for a repository. **/
-    public static final String ACTION_MANAGE_REPOSITORY_PROPERTIES =
-            ACTION_BASE + "MANAGE_REPOSITORY_PROPERTIES";
+	/** Manage the properties for a repository. **/
+	public static final String ACTION_MANAGE_REPOSITORY_PROPERTIES =
+			ACTION_BASE + "MANAGE_REPOSITORY_PROPERTIES";
 
-    /** Manage a particular repository action. **/
-    public static final String ACTION_MANAGE_REPOSITORY =
-            ACTION_BASE + "MANAGE_REPOSITORY";
+	/** Manage a particular repository action. **/
+	public static final String ACTION_MANAGE_REPOSITORY =
+			ACTION_BASE + "MANAGE_REPOSITORY";
 
-    /** Manage all repositories action. **/
-    public static final String ACTION_MANAGE_REPOSITORIES =
-            ACTION_BASE + "MANAGE_REPOSITORIES";
+	/** Manage all repositories action. **/
+	public static final String ACTION_MANAGE_REPOSITORIES =
+			ACTION_BASE + "MANAGE_REPOSITORIES";
 
-    /** Manage peer information action. **/
-    public static final String ACTION_MANAGE_PEER_INFO =
-            ACTION_BASE + "MANAGE_PEER_INFO";
+	/** Manage peer information action. **/
+	public static final String ACTION_MANAGE_PEER_INFO =
+			ACTION_BASE + "MANAGE_PEER_INFO";
 
-    /** Manage local sharing action. **/
-    public static final String ACTION_MANAGE_LOCAL_SHARING =
-            ACTION_BASE + "MANAGE_LOCAL_SHARING";
+	/** Manage local sharing action. **/
+	public static final String ACTION_MANAGE_LOCAL_SHARING =
+			ACTION_BASE + "MANAGE_LOCAL_SHARING";
 
-    /** Manage remote sharing action. **/
-    public static final String ACTION_MANAGE_REMOTE_SHARING =
-            ACTION_BASE + "MANAGE_REMOTE_SHARING";
+	/** Manage remote sharing action. **/
+	public static final String ACTION_MANAGE_REMOTE_SHARING =
+			ACTION_BASE + "MANAGE_REMOTE_SHARING";
 
-    /** The git service. **/
-    public static final String GIT_SERVICE = "interdroid.vdb.GIT_SERVICE";
+	/** The git service. **/
+	public static final String GIT_SERVICE = "interdroid.vdb.GIT_SERVICE";
 
-    /** Initialize a database. **/
-    public static final String ACTION_INIT_DB = "interdroid.vdb.INIT_DB";
+	/** Initialize a database. **/
+	public static final String ACTION_INIT_DB = "interdroid.vdb.INIT_DB";
 
-    /** Register an avro schema. **/
-    public static final String REGISTER_SCHEMA =
-            "interdroid.vdb.REGISTER_SCHEMA";
+	/** Register an avro schema. **/
+	public static final String REGISTER_SCHEMA =
+			"interdroid.vdb.REGISTER_SCHEMA";
 
 }

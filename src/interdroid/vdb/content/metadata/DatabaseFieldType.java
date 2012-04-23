@@ -37,18 +37,18 @@ package interdroid.vdb.content.metadata;
  *
  */
 public enum DatabaseFieldType {
-    /** An integer number. */
-    INTEGER,
-    /** A real number. */
-    REAL_NUMBER,
-    /** A text field. */
-    TEXT,
-    /** A binary blob. */
-    BLOB,
-    /** One to many field with an integer key. */
-    ONE_TO_MANY_INT,
-    /** One to many field with a string key. */
-    ONE_TO_MANY_STRING,
-    /** A one to one connection field. */
-    ONE_TO_ONE
+	/** An integer number. */
+	INTEGER,
+	/** A real number. */
+	REAL_NUMBER,
+	/** A text field. */
+	TEXT,
+	/** A binary blob. */
+	BLOB,
+	/** One to many field with an integer key. */
+	ONE_TO_MANY_INT,
+	/** One to many field with a string key. */
+	ONE_TO_MANY_STRING,
+	/** A one to one connection field. */
+	ONE_TO_ONE
 }

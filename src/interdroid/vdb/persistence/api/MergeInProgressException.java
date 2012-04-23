@@ -37,9 +37,9 @@ package interdroid.vdb.persistence.api;
  */
 public class MergeInProgressException extends Exception {
 
-    /**
-     * The serial version UID for the class.
-     */
-    private static final long serialVersionUID = 1L;
+	/**
+	 * The serial version UID for the class.
+	 */
+	private static final long serialVersionUID = 1L;
 
 }

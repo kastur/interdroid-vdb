@@ -55,60 +55,60 @@ import android.content.Context;
  * @param <C> The client type
  */
 public class VdbRepositoryResolver<C> implements RepositoryResolver<C> {
-    /**
-     * Access to logger.
-     */
-    private static final Logger LOG = LoggerFactory
-            .getLogger(VdbRepositoryResolver.class);
+	/**
+	 * Access to logger.
+	 */
+	private static final Logger LOG = LoggerFactory
+			.getLogger(VdbRepositoryResolver.class);
 
-    /**
-     * The provider registry we lookup repositories with.
-     */
-    private final VdbProviderRegistry mProviderRegistry;
-    /**
-     * The context we are running in.
-     */
-    private final Context mContext;
+	/**
+	 * The provider registry we lookup repositories with.
+	 */
+	private final VdbProviderRegistry mProviderRegistry;
+	/**
+	 * The context we are running in.
+	 */
+	private final Context mContext;
 
-    /**
-     * Construct a resovler for the given context.
-     * @param context the context the resolver is running in.
-     * @throws IOException if reading or writing fails.
-     */
-    public VdbRepositoryResolver(final Context context) throws IOException {
-        // This ensures that all repositories are registered
-        mProviderRegistry = new VdbProviderRegistry(context);
-        mContext = context;
-    }
+	/**
+	 * Construct a resovler for the given context.
+	 * @param context the context the resolver is running in.
+	 * @throws IOException if reading or writing fails.
+	 */
+	public VdbRepositoryResolver(final Context context) throws IOException {
+		// This ensures that all repositories are registered
+		mProviderRegistry = new VdbProviderRegistry(context);
+		mContext = context;
+	}
 
-    @Override
-    public final Repository open(final C req, final String name)
-            throws RepositoryNotFoundException, ServiceNotAuthorizedException,
-            ServiceNotEnabledException {
-        Repository result = null;
-        LOG.debug("Getting repository for {}", name);
-        // Make sure the provider has been initialized
-        // so it is in the RepositoryRegistry properly.
-        mProviderRegistry.initByName(name);
-        try {
-            result =  VdbRepositoryRegistry.getInstance()
-                    .getJGitRepository(mContext, name);
-        } catch (IOException e) {
-            throw new RepositoryNotFoundException(
-                    "Error fetching repository", e);
-        }
-        LOG.debug("Found repo: {}", result);
-        return result;
-    }
+	@Override
+	public final Repository open(final C req, final String name)
+			throws RepositoryNotFoundException, ServiceNotAuthorizedException,
+			ServiceNotEnabledException {
+		Repository result = null;
+		LOG.debug("Getting repository for {}", name);
+		// Make sure the provider has been initialized
+		// so it is in the RepositoryRegistry properly.
+		mProviderRegistry.initByName(name);
+		try {
+			result =  VdbRepositoryRegistry.getInstance()
+					.getJGitRepository(mContext, name);
+		} catch (IOException e) {
+			throw new RepositoryNotFoundException(
+					"Error fetching repository", e);
+		}
+		LOG.debug("Found repo: {}", result);
+		return result;
+	}
 
-    /**
-     * @param email the client email
-     * @return the list of repositories visible to this email
-     * @throws IOException if reading or writing fails.
-     */
-    public final List<Map<String, Object>> getRepositoryList(final String email)
-            throws IOException {
-        return mProviderRegistry.getAllRepositories(email);
-    }
+	/**
+	 * @param email the client email
+	 * @return the list of repositories visible to this email
+	 * @throws IOException if reading or writing fails.
+	 */
+	public final List<Map<String, Object>> getRepositoryList(final String email)
+			throws IOException {
+		return mProviderRegistry.getAllRepositories(email);
+	}
 
 }

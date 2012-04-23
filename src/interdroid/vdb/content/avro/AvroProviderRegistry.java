@@ -68,124 +68,124 @@ import android.net.Uri;
  *
  */
 public class AvroProviderRegistry extends ORMGenericContentProvider {
-    /**
-     * Access to logger.
-     */
-    private static final Logger LOG = LoggerFactory
-            .getLogger(AvroProviderRegistry.class);
+	/**
+	 * Access to logger.
+	 */
+	private static final Logger LOG = LoggerFactory
+			.getLogger(AvroProviderRegistry.class);
 
-    /**
-     * The registry configuration.
-     * @author nick &lt;palmer@cs.vu.nl&gt;
-     *
-     */
-    @DbEntity(name = AvroSchemaRegistrationHandler.NAME,
-            itemContentType = "vnd.android.cursor.item/"
-                    + AvroSchemaRegistrationHandler.FULL_NAME,
-                    contentType = "vnd.android.cursor.dir/"
-                            + AvroSchemaRegistrationHandler.FULL_NAME)
-    public static final class RegistryConf {
-        /**
-         * No construction.
-         */
-        private RegistryConf() { }
+	/**
+	 * The registry configuration.
+	 * @author nick &lt;palmer@cs.vu.nl&gt;
+	 *
+	 */
+	@DbEntity(name = AvroSchemaRegistrationHandler.NAME,
+			itemContentType = "vnd.android.cursor.item/"
+					+ AvroSchemaRegistrationHandler.FULL_NAME,
+					contentType = "vnd.android.cursor.dir/"
+							+ AvroSchemaRegistrationHandler.FULL_NAME)
+	public static final class RegistryConf {
+		/**
+		 * No construction.
+		 */
+		private RegistryConf() { }
 
-        /**
-         * The default sort order for this table.
-         */
-        public static final String DEFAULT_SORT_ORDER = "modified DESC";
+		/**
+		 * The default sort order for this table.
+		 */
+		public static final String DEFAULT_SORT_ORDER = "modified DESC";
 
-        /**
-         * The content URI for this type.
-         */
-        public static final Uri CONTENT_URI =
-                Uri.withAppendedPath(EntityUriBuilder.branchUri(
-                        Authority.VDB, AvroSchemaRegistrationHandler.NAMESPACE,
-                        "master"), AvroSchemaRegistrationHandler.NAME);
+		/**
+		 * The content URI for this type.
+		 */
+		public static final Uri CONTENT_URI =
+				Uri.withAppendedPath(EntityUriBuilder.branchUri(
+						Authority.VDB, AvroSchemaRegistrationHandler.NAMESPACE,
+						"master"), AvroSchemaRegistrationHandler.NAME);
 
-        /**
-         * The ID field.
-         */
-        @DbField(isID = true, dbType = DatabaseFieldType.INTEGER)
-        public static final String ID = "_id";
+		/**
+		 * The ID field.
+		 */
+		@DbField(isID = true, dbType = DatabaseFieldType.INTEGER)
+		public static final String ID = "_id";
 
-        /**
-         * The key field.
-         */
-        @DbField(dbType = DatabaseFieldType.TEXT)
-        public static final String NAME =
-        AvroSchemaRegistrationHandler.KEY_NAME;
+		/**
+		 * The key field.
+		 */
+		@DbField(dbType = DatabaseFieldType.TEXT)
+		public static final String NAME =
+		AvroSchemaRegistrationHandler.KEY_NAME;
 
-        /**
-         * The namespace field.
-         */
-        @DbField(dbType = DatabaseFieldType.TEXT)
-        public static final String NAMESPACE =
-        AvroSchemaRegistrationHandler.KEY_NAMESPACE;
+		/**
+		 * The namespace field.
+		 */
+		@DbField(dbType = DatabaseFieldType.TEXT)
+		public static final String NAMESPACE =
+		AvroSchemaRegistrationHandler.KEY_NAMESPACE;
 
-        /**
-         * The schema field.
-         */
-        @DbField(dbType = DatabaseFieldType.TEXT)
-        public static final String SCHEMA =
-        AvroSchemaRegistrationHandler.KEY_SCHEMA;
+		/**
+		 * The schema field.
+		 */
+		@DbField(dbType = DatabaseFieldType.TEXT)
+		public static final String SCHEMA =
+		AvroSchemaRegistrationHandler.KEY_SCHEMA;
 
-    }
+	}
 
-    /**
-     * The context we are working in.
-     */
-    private Context mContext;
+	/**
+	 * The context we are working in.
+	 */
+	private Context mContext;
 
-    /**
-     * Construct a provider registry.
-     */
-    public AvroProviderRegistry() {
-        super(AvroSchemaRegistrationHandler.NAMESPACE, RegistryConf.class);
-    }
+	/**
+	 * Construct a provider registry.
+	 */
+	public AvroProviderRegistry() {
+		super(AvroSchemaRegistrationHandler.NAMESPACE, RegistryConf.class);
+	}
 
-    /**
-     * Returns all repositories registered with the system.
-     * @return the list of repository configurations.
-     */
-    public final List<RepositoryConf> getAllRepositories() {
-        Cursor c = null;
-        ArrayList<RepositoryConf> result = new ArrayList<RepositoryConf>();
-        try {
-            c = query(AvroSchemaRegistrationHandler.URI,
-                    new String[]{AvroSchemaRegistrationHandler.KEY_NAMESPACE,
-                    AvroSchemaRegistrationHandler.KEY_SCHEMA},
-                    null, null, null);
-            if (c != null) {
-                while (c.moveToNext()) {
-                    result.add(new RepositoryConf(
-                            c.getString(0),
-                            c.getString(1)));
-                }
-            }
-        } finally {
-            if (c != null) {
-                try {
-                    c.close();
-                } catch (Exception e) {
-                    LOG.warn("Exception while closing cursor: ", e);
-                }
-            }
-        }
+	/**
+	 * Returns all repositories registered with the system.
+	 * @return the list of repository configurations.
+	 */
+	public final List<RepositoryConf> getAllRepositories() {
+		Cursor c = null;
+		ArrayList<RepositoryConf> result = new ArrayList<RepositoryConf>();
+		try {
+			c = query(AvroSchemaRegistrationHandler.URI,
+					new String[]{AvroSchemaRegistrationHandler.KEY_NAMESPACE,
+					AvroSchemaRegistrationHandler.KEY_SCHEMA},
+					null, null, null);
+			if (c != null) {
+				while (c.moveToNext()) {
+					result.add(new RepositoryConf(
+							c.getString(0),
+							c.getString(1)));
+				}
+			}
+		} finally {
+			if (c != null) {
+				try {
+					c.close();
+				} catch (Exception e) {
+					LOG.warn("Exception while closing cursor: ", e);
+				}
+			}
+		}
 
-        return result;
-    }
+		return result;
+	}
 
-    @Override
-    public final void onAttach(final Context context, final ProviderInfo info) {
-        super.attachInfo(context, info);
-        mContext = context;
-    }
+	@Override
+	public final void onAttach(final Context context, final ProviderInfo info) {
+		super.attachInfo(context, info);
+		mContext = context;
+	}
 
-    @Override
-    public final void onPostUpdate(final Uri uri, final ContentValues values,
-            final String where, final String[] whereArgs) {
-    	// TODO: Finish implementation of schema migration.
+	@Override
+	public final void onPostUpdate(final Uri uri, final ContentValues values,
+			final String where, final String[] whereArgs) {
+		// TODO: Finish implementation of schema migration.
 //		try {
 //			LOG.debug("Migrating DB: {} {}", values, whereArgs);
 ////            migrateDb(
@@ -194,107 +194,107 @@ public class AvroProviderRegistry extends ORMGenericContentProvider {
 //		} catch (IOException e) {
 //			throw new RuntimeException("Error updating database.");
 //		}
-    }
+	}
 
-    @Override
-    public final void onPostInsert(final Uri uri,
-            final ContentValues userValues) {
-        LOG.debug("On post insert: {}", userValues);
-        String name = userValues.getAsString(
-                AvroSchemaRegistrationHandler.KEY_NAMESPACE);
-        String schema = userValues.getAsString(
-                AvroSchemaRegistrationHandler.KEY_SCHEMA);
-        LOG.debug("Registering: {} {}", name, schema);
-        registerRepository(name, schema);
-    }
+	@Override
+	public final void onPostInsert(final Uri uri,
+			final ContentValues userValues) {
+		LOG.debug("On post insert: {}", userValues);
+		String name = userValues.getAsString(
+				AvroSchemaRegistrationHandler.KEY_NAMESPACE);
+		String schema = userValues.getAsString(
+				AvroSchemaRegistrationHandler.KEY_SCHEMA);
+		LOG.debug("Registering: {} {}", name, schema);
+		registerRepository(name, schema);
+	}
 
-    @Override
-    public final void onPostDelete(final Uri uri,
-            final String where, final String[] whereArgs) {
-        LOG.debug("Deleted avro repo: {}", whereArgs[0]);
-        VdbRepositoryRegistry.getInstance().deleteRepository(getContext(),
-                whereArgs[0]);
-        try {
-            new VdbProviderRegistry(getContext()).unregister(whereArgs[0]);
-        } catch (IOException e) {
-            // TODO: Auto-generated catch block
-            e.printStackTrace();
-        }
-    }
+	@Override
+	public final void onPostDelete(final Uri uri,
+			final String where, final String[] whereArgs) {
+		LOG.debug("Deleted avro repo: {}", whereArgs[0]);
+		VdbRepositoryRegistry.getInstance().deleteRepository(getContext(),
+				whereArgs[0]);
+		try {
+			new VdbProviderRegistry(getContext()).unregister(whereArgs[0]);
+		} catch (IOException e) {
+			// TODO: Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 
 
-    private void registerRepository(final String namespace, final String schema) {
-        VdbProviderRegistry registry;
-        try {
-            LOG.debug("Registering avro repo: {} {}", namespace, schema);
-            registry = new VdbProviderRegistry(mContext);
-            registry.registerRepository(
-                    new RepositoryConf(namespace, schema));
-        } catch (IOException e) {
-            throw new RuntimeException("Unable to build registry: ", e);
-        }
-    }
+	private void registerRepository(final String namespace, final String schema) {
+		VdbProviderRegistry registry;
+		try {
+			LOG.debug("Registering avro repo: {} {}", namespace, schema);
+			registry = new VdbProviderRegistry(mContext);
+			registry.registerRepository(
+					new RepositoryConf(namespace, schema));
+		} catch (IOException e) {
+			throw new RuntimeException("Unable to build registry: ", e);
+		}
+	}
 
-    /**
-     * Migrates a database from one schema to the new schema.
-     * @param namespace the namespace for the repository
-     * @param schemaString the new schema as a string.
-     * @throws IOException
-     */
-    private void migrateDb(final String namespace, final String schemaString)
-            throws IOException {
-        // Make sure the repo is registered.
-        registerRepository(namespace, schemaString);
+	/**
+	 * Migrates a database from one schema to the new schema.
+	 * @param namespace the namespace for the repository
+	 * @param schemaString the new schema as a string.
+	 * @throws IOException
+	 */
+	private void migrateDb(final String namespace, final String schemaString)
+			throws IOException {
+		// Make sure the repo is registered.
+		registerRepository(namespace, schemaString);
 
-        // Parse the schema
-        Schema newSchema = Schema.parse(schemaString);
+		// Parse the schema
+		Schema newSchema = Schema.parse(schemaString);
 
-        VdbRepository repo = VdbRepositoryRegistry.getInstance()
-                .getRepository(getContext(), namespace);
+		VdbRepository repo = VdbRepositoryRegistry.getInstance()
+				.getRepository(getContext(), namespace);
 
-        repo.updateDatabase(Constants.MASTER, newSchema);
-    }
+		repo.updateDatabase(Constants.MASTER, newSchema);
+	}
 
-    /**
-     * Queries for the schema for the given URI.
-     *
-     * @param context the context to query in
-     * @param uri the uri to retrieve the schema for
-     * @return the schema for the given uri
-     */
-    public static Schema getSchema(final Context context, final Uri uri) {
-        Cursor c = null;
-        Schema schema = null;
-        Uri dbUri = uri;
-        try {
-            // We expect to deal with internal paths
-            if (!Authority.VDB.equals(uri.getAuthority())) {
-                LOG.debug("Mapping to native: {}", uri);
-                dbUri = EntityUriBuilder.toInternal(uri);
-            }
-            LOG.debug("Querying for schema for: {} {}", dbUri,
-                    dbUri.getPathSegments().get(0));
-            c = context.getContentResolver().query(
-                    AvroSchemaRegistrationHandler.URI,
-                    new String[]{AvroSchemaRegistrationHandler.KEY_SCHEMA},
-                    AvroSchemaRegistrationHandler.KEY_NAMESPACE + "=?",
-                    new String[] {dbUri.getPathSegments().get(0)}, null);
-            if (c != null && c.moveToFirst()) {
-                String schemaString = c.getString(0);
-                LOG.debug("Got schema: {}", schemaString);
-                schema = Schema.parse(schemaString);
-            } else {
-                LOG.error("Schema not found.");
-            }
-        } finally {
-            if (c != null) {
-                try {
-                    c.close();
-                } catch (Exception e) {
-                    LOG.warn("Exception while closing cursor: ", e);
-                }
-            }
-        }
-        return schema;
-    }
+	/**
+	 * Queries for the schema for the given URI.
+	 *
+	 * @param context the context to query in
+	 * @param uri the uri to retrieve the schema for
+	 * @return the schema for the given uri
+	 */
+	public static Schema getSchema(final Context context, final Uri uri) {
+		Cursor c = null;
+		Schema schema = null;
+		Uri dbUri = uri;
+		try {
+			// We expect to deal with internal paths
+			if (!Authority.VDB.equals(uri.getAuthority())) {
+				LOG.debug("Mapping to native: {}", uri);
+				dbUri = EntityUriBuilder.toInternal(uri);
+			}
+			LOG.debug("Querying for schema for: {} {}", dbUri,
+					dbUri.getPathSegments().get(0));
+			c = context.getContentResolver().query(
+					AvroSchemaRegistrationHandler.URI,
+					new String[]{AvroSchemaRegistrationHandler.KEY_SCHEMA},
+					AvroSchemaRegistrationHandler.KEY_NAMESPACE + "=?",
+					new String[] {dbUri.getPathSegments().get(0)}, null);
+			if (c != null && c.moveToFirst()) {
+				String schemaString = c.getString(0);
+				LOG.debug("Got schema: {}", schemaString);
+				schema = Schema.parse(schemaString);
+			} else {
+				LOG.error("Schema not found.");
+			}
+		} finally {
+			if (c != null) {
+				try {
+					c.close();
+				} catch (Exception e) {
+					LOG.warn("Exception while closing cursor: ", e);
+				}
+			}
+		}
+		return schema;
+	}
 }

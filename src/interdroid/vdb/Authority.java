@@ -36,14 +36,14 @@ package interdroid.vdb;
  */
 public final class Authority {
 
-    /**
-     * No constructor.
-     */
-    private Authority() { }
+	/**
+	 * No constructor.
+	 */
+	private Authority() { }
 
-    /**
-     * The authority all data lives inside.
-     */
-    public static final String VDB = "interdroid.vdb.content";
+	/**
+	 * The authority all data lives inside.
+	 */
+	public static final String VDB = "interdroid.vdb.content";
 
 }

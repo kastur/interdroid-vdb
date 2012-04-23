@@ -41,16 +41,16 @@ import java.lang.annotation.RetentionPolicy;
  */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface DbEntity {
-    /**
-     * the name for this entity.
-     */
-    String name();
-    /**
-     * the list content type for this entity.
-     */
-    String contentType();
-    /**
-     * the item content type for this entity.
-     */
-    String itemContentType();
+	/**
+	 * the name for this entity.
+	 */
+	String name();
+	/**
+	 * the list content type for this entity.
+	 */
+	String contentType();
+	/**
+	 * the item content type for this entity.
+	 */
+	String itemContentType();
 }

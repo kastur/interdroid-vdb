@@ -39,13 +39,13 @@ import android.database.sqlite.SQLiteDatabase;
  *
  */
 public interface VdbInitializer {
-    /**
-     * Called when the database is created.
-     * @param db the database which is being created.
-     */
-    void onCreate(SQLiteDatabase db);
-    /**
-     * @return the schema for this database.
-     */
-    String getSchema();
+	/**
+	 * Called when the database is created.
+	 * @param db the database which is being created.
+	 */
+	void onCreate(SQLiteDatabase db);
+	/**
+	 * @return the schema for this database.
+	 */
+	String getSchema();
 }

@@ -46,18 +46,18 @@ import interdroid.vdb.persistence.api.VdbInitializer;
  */
 public class ORMGenericContentProvider extends GenericContentProvider {
 
-    /**
-     * Construct an ORM content provider for the given information.
-     * @param namespace the namespace for the database.
-     * @param schemaClasses the class with annotations of bd info.
-     */
-    public ORMGenericContentProvider(final String namespace,
-            final Class<?> schemaClasses) {
-        super(namespace, new ORMMetadata(namespace, schemaClasses));
-    }
+	/**
+	 * Construct an ORM content provider for the given information.
+	 * @param namespace the namespace for the database.
+	 * @param schemaClasses the class with annotations of bd info.
+	 */
+	public ORMGenericContentProvider(final String namespace,
+			final Class<?> schemaClasses) {
+		super(namespace, new ORMMetadata(namespace, schemaClasses));
+	}
 
-    @Override
-    public final VdbInitializer buildInitializer() {
-        return new DatabaseInitializer(mNamespace, mMetadata);
-    }
+	@Override
+	public final VdbInitializer buildInitializer() {
+		return new DatabaseInitializer(mNamespace, mMetadata);
+	}
 }

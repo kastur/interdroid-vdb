@@ -58,120 +58,120 @@ import android.net.Uri;
  */
 public class AvroContentProviderProxy extends ContentProvider {
 
-    /**
-     * Access to logger.
-     */
-    private static final Logger LOG =
-            LoggerFactory.getLogger(AvroContentProviderProxy.class);
+	/**
+	 * Access to logger.
+	 */
+	private static final Logger LOG =
+			LoggerFactory.getLogger(AvroContentProviderProxy.class);
 
-    // TODO: Need to proxy content change delete update etc notifications.
-    // TODO: Need to check for installation of vdb-ui.
+	// TODO: Need to proxy content change delete update etc notifications.
+	// TODO: Need to check for installation of vdb-ui.
 
-    /**
-     * The schema for the provider.
-     */
-    private final Schema mSchema;
+	/**
+	 * The schema for the provider.
+	 */
+	private final Schema mSchema;
 
-    /**
-     * Constructs a proxy for a provider using the given schema.
-     * @param schema the schema for the provider
-     */
-    public AvroContentProviderProxy(final String schema) {
-        this(Schema.parse(schema));
-    }
+	/**
+	 * Constructs a proxy for a provider using the given schema.
+	 * @param schema the schema for the provider
+	 */
+	public AvroContentProviderProxy(final String schema) {
+		this(Schema.parse(schema));
+	}
 
-    /**
-     * Constructs a proxy for a provider using the given schema.
-     * @param schema the schema for the provider
-     */
-    public AvroContentProviderProxy(final Schema schema) {
-        LOG.debug("Constructing provider proxy.");
-        mSchema = schema;
-    }
+	/**
+	 * Constructs a proxy for a provider using the given schema.
+	 * @param schema the schema for the provider
+	 */
+	public AvroContentProviderProxy(final Schema schema) {
+		LOG.debug("Constructing provider proxy.");
+		mSchema = schema;
+	}
 
-    /**
-     * Remaps a URI from the native URI to the internal URI.
-     * @param uri the uri to remap to an internal URI
-     * @return the internal URI equivalent
-     */
-    private Uri remapUri(final Uri uri) {
-        // TODO: This should be done with EntityURIBuilder no?
-        Uri.Builder builder = new Uri.Builder();
-        builder.scheme(uri.getScheme());
-        builder.authority(Authority.VDB);
-        builder.path(uri.getAuthority() + uri.getPath());
-        builder.query(uri.getQuery());
-        Uri built = builder.build();
-        LOG.debug("remapped: {} to {}", uri, built);
-        return built;
-    }
+	/**
+	 * Remaps a URI from the native URI to the internal URI.
+	 * @param uri the uri to remap to an internal URI
+	 * @return the internal URI equivalent
+	 */
+	private Uri remapUri(final Uri uri) {
+		// TODO: This should be done with EntityURIBuilder no?
+		Uri.Builder builder = new Uri.Builder();
+		builder.scheme(uri.getScheme());
+		builder.authority(Authority.VDB);
+		builder.path(uri.getAuthority() + uri.getPath());
+		builder.query(uri.getQuery());
+		Uri built = builder.build();
+		LOG.debug("remapped: {} to {}", uri, built);
+		return built;
+	}
 
-    @Override
-    public final int delete(final Uri uri, final String selection,
-            final String[] selectionArgs) {
-        return getContext().getContentResolver().delete(
-                remapUri(uri), selection, selectionArgs);
-    }
+	@Override
+	public final int delete(final Uri uri, final String selection,
+			final String[] selectionArgs) {
+		return getContext().getContentResolver().delete(
+				remapUri(uri), selection, selectionArgs);
+	}
 
-    @Override
-    public final String getType(final Uri uri) {
-        return getContext().getContentResolver().getType(remapUri(uri));
-    }
+	@Override
+	public final String getType(final Uri uri) {
+		return getContext().getContentResolver().getType(remapUri(uri));
+	}
 
-    @Override
-    public final Uri insert(final Uri uri, final ContentValues values) {
-        final UriMatch result = EntityUriMatcher.getMatch(uri);
-        ContentChangeHandler handler =
-                ContentChangeHandler.getHandler(
-                        result.authority, result.entityName);
-        if (handler != null) {
-            handler.preInsertHook(values);
-        }
-        Context context = getContext();
-        ContentResolver resolver = context.getContentResolver();
-        Uri mappedUri = remapUri(uri);
-        LOG.debug("Inserting into:" + mappedUri + " values: " + values);
+	@Override
+	public final Uri insert(final Uri uri, final ContentValues values) {
+		final UriMatch result = EntityUriMatcher.getMatch(uri);
+		ContentChangeHandler handler =
+				ContentChangeHandler.getHandler(
+						result.authority, result.entityName);
+		if (handler != null) {
+			handler.preInsertHook(values);
+		}
+		Context context = getContext();
+		ContentResolver resolver = context.getContentResolver();
+		Uri mappedUri = remapUri(uri);
+		LOG.debug("Inserting into:" + mappedUri + " values: " + values);
 
-        return resolver.insert(mappedUri, values);
-    }
+		return resolver.insert(mappedUri, values);
+	}
 
-    @Override
-    public final void attachInfo(final Context context,
-            final ProviderInfo info) {
-        super.attachInfo(context, info);
+	@Override
+	public final void attachInfo(final Context context,
+			final ProviderInfo info) {
+		super.attachInfo(context, info);
 
-        // Make sure we are registered.
-        LOG.debug("attachInfo");
-        LOG.debug("Registering schema: {}", mSchema.getName());
+		// Make sure we are registered.
+		LOG.debug("attachInfo");
+		LOG.debug("Registering schema: {}", mSchema.getName());
 
-        try {
-            AvroSchemaRegistrationHandler.registerSchema(context, mSchema);
-        } catch (IOException e) {
-            LOG.error("Caught IOException while registering.", e);
-        }
+		try {
+			AvroSchemaRegistrationHandler.registerSchema(context, mSchema);
+		} catch (IOException e) {
+			LOG.error("Caught IOException while registering.", e);
+		}
 
-    }
+	}
 
-    @Override
-    public final Cursor query(final Uri uri, final String[] projection,
-            final String selection, final String[] selectionArgs,
-            final String sortOrder) {
-        return new CrossProcessCursorWrapper(getContext()
-                .getContentResolver().query(
-                        remapUri(uri), projection,
-                        selection, selectionArgs, sortOrder));
-    }
+	@Override
+	public final Cursor query(final Uri uri, final String[] projection,
+			final String selection, final String[] selectionArgs,
+			final String sortOrder) {
+		return new CrossProcessCursorWrapper(getContext()
+				.getContentResolver().query(
+						remapUri(uri), projection,
+						selection, selectionArgs, sortOrder));
+	}
 
-    @Override
-    public final int update(final Uri uri, final ContentValues values,
-            final String selection, final String[] selectionArgs) {
-        return getContext().getContentResolver().update(
-                remapUri(uri), values, selection, selectionArgs);
-    }
+	@Override
+	public final int update(final Uri uri, final ContentValues values,
+			final String selection, final String[] selectionArgs) {
+		return getContext().getContentResolver().update(
+				remapUri(uri), values, selection, selectionArgs);
+	}
 
-    @Override
-    public final boolean onCreate() {
-        return false;
-    }
+	@Override
+	public final boolean onCreate() {
+		return false;
+	}
 
 }
